@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Home View Solutions</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js"></script>
+
+<style>
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+}
+
+html,
+body{
+    width:100%;
+    height:100%;
+    overflow:hidden;
+    font-family:Arial, Helvetica, sans-serif;
+}
+
+/* Background Video */
+#bgVideo{
+    position:fixed;
+    top:0;
+    left:0;
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    z-index:-2;
+}
+
+/* Dark Overlay */
+.overlay{
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,0.15);
+    z-index:-1;
+}
+
+/* Center Content */
+.center-wrap{
+    position:absolute;
+    top:50%;
+    left:50%;
+    transform:translate(-50%, -50%);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:25px;
+}
+
+/* ENTER SITE Button */
+.enter-btn{
+    position:relative;
+    padding:14px 38px;
+    border:none;
+    border-radius:999px;
+    background:rgba(255,255,255,0.35);
+    backdrop-filter:blur(12px);
+    -webkit-backdrop-filter:blur(12px);
+    cursor:pointer;
+    overflow:hidden;
+
+    transition:
+        transform 0.5s ease,
+        opacity 0.5s ease;
+}
+
+/* Button shrink/fade on click */
+.enter-btn.hide{
+    transform:scale(0.7);
+    opacity:0;
+    pointer-events:none;
+}
+
+/* Text */
+.enter-btn span{
+    color:rgba(0,0,0,0.9);
+    font-weight:700;
+    letter-spacing:3px;
+    font-size:14px;
+    mix-blend-mode:multiply;
+}
+
+/* Lottie Container */
+#lottie{
+    width:640px;
+    max-width:90vw;
+    opacity:0;
+    animation:fadeIn 0.5s ease forwards;
+}
+
+@keyframes fadeIn{
+    from{
+        opacity:0;
+    }
+    to{
+        opacity:1;
+    }
+}
+</style>
+</head>
+<body>
+
+<video id="bgVideo" autoplay muted loop playsinline>
+    <source src="blue fog.mp4" type="video/mp4">
+</video>
+
+<div class="overlay"></div>
+
+<div class="center-wrap">
+
+    <button class="enter-btn" id="enterBtn">
+        <span>ENTER SITE</span>
+    </button>
+
+    <div id="lottie"></div>
+
+</div>
+
+<script>
+
+const animation = lottie.loadAnimation({
+    container: document.getElementById('lottie'),
+    renderer: 'svg',
+    loop: false,
+    autoplay: false,
+    path: 'logo merge.json'
+});
+
+/* Freeze on first frame once loaded */
+animation.addEventListener('DOMLoaded', () => {
+    animation.goToAndStop(0, true);
+});
+
+document.getElementById('enterBtn').addEventListener('click', () => {
+
+    const btn = document.getElementById('enterBtn');
+
+    btn.classList.add('hide');
+
+    animation.play();
+
+});
+
+</script>
+
+</body>
+</html>
