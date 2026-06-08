@@ -20,25 +20,36 @@ body{
     height:100%;
     overflow:hidden;
     font-family:Arial, Helvetica, sans-serif;
+    background:#000;
 }
 
 /* Background Video */
 #bgVideo{
     position:fixed;
-    top:0;
-    left:0;
+    inset:0;
     width:100%;
     height:100%;
     object-fit:cover;
-    z-index:-2;
+    z-index:1;
 }
 
-/* Dark Overlay */
+/* Black fade layer */
+.video-fade{
+    position:fixed;
+    inset:0;
+    background:#000;
+    z-index:2;
+    pointer-events:none;
+    animation:fadeAway 0.75s ease forwards;
+}
+
+/* Dark overlay */
 .overlay{
     position:fixed;
     inset:0;
-    background:rgba(0,0,0,0.15);
-    z-index:-1;
+    background:rgba(0,0,0,0.30);
+    z-index:3;
+    pointer-events:none;
 }
 
 /* Center Content */
@@ -50,7 +61,33 @@ body{
     display:flex;
     flex-direction:column;
     align-items:center;
-    gap:25px;
+    gap:30px;
+    z-index:10;
+}
+
+/* Lottie Container */
+#lottie{
+    width:640px;
+    max-width:90vw;
+
+    opacity:0;
+    transform:scale(0.95);
+
+    animation:contentReveal 0.75s ease 0.4s forwards;
+}
+
+/* Button Wrapper */
+#buttonWrapper{
+    opacity:0;
+    transform:scale(0.95);
+
+    animation:contentReveal 0.75s ease 0.4s forwards;
+}
+
+/* EXIT animation (fix for reliable shrink + fade) */
+#buttonWrapper.hide{
+    pointer-events:none;
+    animation:buttonExit 0.5s ease forwards;
 }
 
 /* ENTER SITE Button */
@@ -60,24 +97,15 @@ body{
     border:none;
     border-radius:999px;
     background:rgba(255,255,255,0.35);
+
     backdrop-filter:blur(12px);
     -webkit-backdrop-filter:blur(12px);
+
     cursor:pointer;
     overflow:hidden;
-
-    transition:
-        transform 0.5s ease,
-        opacity 0.5s ease;
 }
 
-/* Button shrink/fade on click */
-.enter-btn.hide{
-    transform:scale(0.7);
-    opacity:0;
-    pointer-events:none;
-}
-
-/* Text */
+/* Button Text */
 .enter-btn span{
     color:rgba(0,0,0,0.9);
     font-weight:700;
@@ -86,39 +114,66 @@ body{
     mix-blend-mode:multiply;
 }
 
-/* Lottie Container */
-#lottie{
-    width:640px;
-    max-width:90vw;
-    opacity:0;
-    animation:fadeIn 0.5s ease forwards;
+/* Video fade out layer */
+.video-fade{
+    position:fixed;
+    inset:0;
+    background:#000;
+    z-index:2;
+    pointer-events:none;
+    animation:fadeAway 0.75s ease forwards;
 }
 
-@keyframes fadeIn{
+/* Fade black away to reveal video */
+@keyframes fadeAway{
+    from{ opacity:1; }
+    to{ opacity:0; }
+}
+
+/* Logo + button reveal */
+@keyframes contentReveal{
     from{
         opacity:0;
+        transform:scale(0.95);
     }
     to{
         opacity:1;
+        transform:scale(1);
+    }
+}
+
+/* Button exit animation */
+@keyframes buttonExit{
+    from{
+        opacity:1;
+        transform:scale(1);
+    }
+    to{
+        opacity:0;
+        transform:scale(0.85);
     }
 }
 </style>
 </head>
+
 <body>
 
 <video id="bgVideo" autoplay muted loop playsinline>
     <source src="blue fog.mp4" type="video/mp4">
 </video>
 
+<div class="video-fade"></div>
 <div class="overlay"></div>
 
 <div class="center-wrap">
 
-    <button class="enter-btn" id="enterBtn">
-        <span>ENTER SITE</span>
-    </button>
-
     <div id="lottie"></div>
+
+    <div id="buttonWrapper">
+        <button class="enter-btn" id="enterBtn">
+            <span>ENTER SITE</span>
+        </button>
+    </div>
 
 </div>
 
@@ -132,16 +187,17 @@ const animation = lottie.loadAnimation({
     path: 'logo merge.json'
 });
 
-/* Freeze on first frame once loaded */
+/* Freeze on first frame */
 animation.addEventListener('DOMLoaded', () => {
     animation.goToAndStop(0, true);
 });
 
+/* Click handler */
 document.getElementById('enterBtn').addEventListener('click', () => {
 
-    const btn = document.getElementById('enterBtn');
+    const wrapper = document.getElementById('buttonWrapper');
 
-    btn.classList.add('hide');
+    wrapper.classList.add('hide');
 
     animation.play();
 
