@@ -64,17 +64,23 @@ html,body{
 }
 
 .enter-btn{
-    border:none;
+    border:1px solid rgba(255,255,255,.18);
     padding:14px 38px;
     border-radius:999px;
-    background:rgba(255,255,255,0.35);
+    background:rgba(255,255,255,0.10);
     backdrop-filter:blur(12px);
     -webkit-backdrop-filter:blur(12px);
     cursor:pointer;
-    color:black;
+    color:white;
     font-weight:bold;
     letter-spacing:3px;
     transition:all .5s ease;
+}
+
+.enter-btn:hover{
+    border-color:rgba(255,255,255,.32);
+    background:rgba(255,255,255,.18);
+    transform:translateY(-2px);
 }
 
 .enter-btn.hide{
@@ -141,6 +147,16 @@ html,body{
 .logo{
     width:280px;
     max-width:80vw;
+    opacity:0;
+    transform:scale(.92) translateY(14px);
+    transition:
+        opacity 1.35s cubic-bezier(.22, 1, .36, 1),
+        transform 1.35s cubic-bezier(.22, 1, .36, 1);
+}
+
+#mainSite.show .logo{
+    opacity:1;
+    transform:scale(1) translateY(0);
 }
 
 .introText{
@@ -171,6 +187,18 @@ html,body{
     width:100%;
     border-radius:20px;
     display:block;
+    opacity:1;
+    transform:translateY(0) scale(1);
+    transition:
+        opacity .8s cubic-bezier(.22, 1, .36, 1),
+        transform .8s cubic-bezier(.22, 1, .36, 1),
+        filter .8s cubic-bezier(.22, 1, .36, 1);
+}
+
+.videoContainer video.slideOut{
+    opacity:0;
+    transform:translateY(14px) scale(.99);
+    filter:blur(5px);
 }
 
 .infoPanel{
@@ -190,6 +218,22 @@ html,body{
     line-height:1.7;
 }
 
+.infoTransitionGroup{
+    opacity:1;
+    transform:translateY(0);
+    filter:blur(0);
+    transition:
+        opacity .8s cubic-bezier(.22, 1, .36, 1),
+        transform .8s cubic-bezier(.22, 1, .36, 1),
+        filter .8s cubic-bezier(.22, 1, .36, 1);
+}
+
+.infoTransitionGroup.slideOut{
+    opacity:0;
+    transform:translateY(16px);
+    filter:blur(5px);
+}
+
 .controls{
     display:flex;
     gap:12px;
@@ -199,11 +243,11 @@ html,body{
 
 .controls button,
 .bottomContactBtn{
-    border:none;
+    border:1px solid rgba(255,255,255,.18);
     cursor:pointer;
     padding:12px 20px;
     border-radius:999px;
-    background:rgba(255,255,255,.20);
+    background:rgba(255,255,255,.10);
     color:white;
     backdrop-filter:blur(12px);
     -webkit-backdrop-filter:blur(12px);
@@ -213,8 +257,15 @@ html,body{
 
 .controls button:hover,
 .bottomContactBtn:hover{
-    background:rgba(255,255,255,.34);
+    border-color:rgba(255,255,255,.32);
+    background:rgba(255,255,255,.18);
     transform:translateY(-2px);
+}
+
+.controls button:disabled{
+    opacity:.45;
+    cursor:default;
+    pointer-events:none;
 }
 
 /* =========================
@@ -305,7 +356,7 @@ html,body{
     z-index:2;
     width:100%;
     max-width:620px;
-    padding:44px 34px 38px;
+    padding:34px 34px 38px;
     border-radius:26px;
     background:rgba(0,0,0,.46);
     backdrop-filter:blur(18px);
@@ -321,16 +372,23 @@ html,body{
     transform:translateY(0) scale(1);
 }
 
+.contactLogo{
+    width:190px;
+    max-width:65%;
+    margin:0 auto 24px;
+    display:block;
+}
+
 .closeContactBtn{
     position:absolute;
     top:16px;
     right:16px;
     width:42px;
     height:42px;
-    border:none;
+    border:1px solid rgba(255,255,255,.18);
     border-radius:999px;
     cursor:pointer;
-    background:rgba(255,255,255,.16);
+    background:rgba(255,255,255,.10);
     color:white;
     font-size:26px;
     line-height:1;
@@ -338,7 +396,8 @@ html,body{
 }
 
 .closeContactBtn:hover{
-    background:rgba(255,255,255,.30);
+    border-color:rgba(255,255,255,.32);
+    background:rgba(255,255,255,.18);
     transform:rotate(90deg);
 }
 
@@ -419,7 +478,12 @@ html,body{
     }
 
     .contactPanel{
-        padding:42px 24px 30px;
+        padding:34px 24px 30px;
+    }
+
+    .contactLogo{
+        width:160px;
+        margin-bottom:22px;
     }
 
     .contactPanel h2{
@@ -495,19 +559,23 @@ html,body{
 
             <div class="infoPanel">
 
-                <h2 id="title"></h2>
+                <div class="infoTransitionGroup" id="infoTransitionGroup">
 
-                <p id="description"></p>
+                    <h2 id="title"></h2>
 
-                <div class="controls">
+                    <p id="description"></p>
 
-                    <button id="prevBtn">◀ Back</button>
+                    <div class="controls">
 
-                    <button id="nextBtn">Next ▶</button>
+                        <button id="prevBtn">◀ Back</button>
 
-                    <button id="demoBtn" style="display:none;">
-                        Request Live Demo
-                    </button>
+                        <button id="nextBtn">Next ▶</button>
+
+                        <button id="demoBtn" style="display:none;">
+                            Request Live Demo
+                        </button>
+
+                    </div>
 
                 </div>
 
@@ -536,6 +604,8 @@ html,body{
         <button class="closeContactBtn" id="closeContactBtn" aria-label="Close contact page">
             ×
         </button>
+
+        <img src="logo.png" class="contactLogo" alt="Home View Solutions">
 
         <h2 id="contactTitle">Request a Real-Time Demo</h2>
 
@@ -626,6 +696,7 @@ text:"Once selections are complete, buyers can freely explore their personalized
 ];
 
 let current = 0;
+let isTransitioning = false;
 
 const title = document.getElementById('title');
 const description = document.getElementById('description');
@@ -633,8 +704,19 @@ const video = document.getElementById('featureVideo');
 const nextBtn = document.getElementById('nextBtn');
 const prevBtn = document.getElementById('prevBtn');
 const demoBtn = document.getElementById('demoBtn');
+const infoTransitionGroup = document.getElementById('infoTransitionGroup');
 
-function updateSlide(){
+const transitionOutTime = 425;
+const transitionInDelay = 60;
+const transitionFinishTime = 800;
+
+function setButtonsDisabled(disabled){
+    nextBtn.disabled = disabled;
+    prevBtn.disabled = disabled;
+    demoBtn.disabled = disabled;
+}
+
+function updateSlideContent(){
 
     title.textContent = slides[current].title;
     description.textContent = slides[current].text;
@@ -654,21 +736,51 @@ function updateSlide(){
     }
 }
 
+function transitionToSlide(newIndex){
+
+    if(isTransitioning || newIndex === current){
+        return;
+    }
+
+    isTransitioning = true;
+    setButtonsDisabled(true);
+
+    infoTransitionGroup.classList.add('slideOut');
+    video.classList.add('slideOut');
+
+    setTimeout(()=>{
+
+        current = newIndex;
+        updateSlideContent();
+
+        setTimeout(()=>{
+
+            infoTransitionGroup.classList.remove('slideOut');
+            video.classList.remove('slideOut');
+
+            setTimeout(()=>{
+                isTransitioning = false;
+                setButtonsDisabled(false);
+            }, transitionFinishTime);
+
+        }, transitionInDelay);
+
+    }, transitionOutTime);
+}
+
 nextBtn.addEventListener('click',()=>{
     if(current < slides.length-1){
-        current++;
-        updateSlide();
+        transitionToSlide(current + 1);
     }
 });
 
 prevBtn.addEventListener('click',()=>{
     if(current > 0){
-        current--;
-        updateSlide();
+        transitionToSlide(current - 1);
     }
 });
 
-updateSlide();
+updateSlideContent();
 
 /* =========================
    CONTACT OVERLAY
