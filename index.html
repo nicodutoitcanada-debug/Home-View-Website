@@ -14,170 +14,342 @@
     box-sizing:border-box;
 }
 
-html,
-body{
+html,body{
     width:100%;
     height:100%;
     overflow:hidden;
     font-family:Arial, Helvetica, sans-serif;
     background:#000;
+    color:white;
 }
 
-/* Background Video */
-#bgVideo{
+/* =========================
+   INTRO
+========================= */
+
+#intro{
     position:fixed;
+    inset:0;
+    z-index:100;
+}
+
+#introVideo{
+    position:absolute;
     inset:0;
     width:100%;
     height:100%;
     object-fit:cover;
-    z-index:1;
 }
 
-/* Black fade layer */
-.video-fade{
-    position:fixed;
+.introOverlay{
+    position:absolute;
     inset:0;
-    background:#000;
-    z-index:2;
-    pointer-events:none;
-    animation:fadeAway 0.75s ease forwards;
+    background:rgba(0,0,0,0.3);
 }
 
-/* Dark overlay */
-.overlay{
-    position:fixed;
-    inset:0;
-    background:rgba(0,0,0,0.30);
-    z-index:3;
-    pointer-events:none;
-}
-
-/* Center Content */
 .center-wrap{
     position:absolute;
     top:50%;
     left:50%;
-    transform:translate(-50%, -50%);
+    transform:translate(-50%,-50%);
     display:flex;
     flex-direction:column;
     align-items:center;
     gap:30px;
-    z-index:10;
 }
 
-/* Lottie Container */
 #lottie{
     width:640px;
     max-width:90vw;
-
-    opacity:0;
-    transform:scale(0.95);
-
-    animation:contentReveal 0.75s ease 0.4s forwards;
 }
 
-/* Button Wrapper */
-#buttonWrapper{
-    opacity:0;
-    transform:scale(0.95);
-
-    animation:contentReveal 0.75s ease 0.4s forwards;
-}
-
-/* EXIT animation (fix for reliable shrink + fade) */
-#buttonWrapper.hide{
-    pointer-events:none;
-    animation:buttonExit 0.5s ease forwards;
-}
-
-/* ENTER SITE Button */
 .enter-btn{
-    position:relative;
-    padding:14px 38px;
     border:none;
+    padding:14px 38px;
     border-radius:999px;
     background:rgba(255,255,255,0.35);
-
     backdrop-filter:blur(12px);
     -webkit-backdrop-filter:blur(12px);
-
     cursor:pointer;
-    overflow:hidden;
-}
-
-/* Button Text */
-.enter-btn span{
-    color:rgba(0,0,0,0.9);
-    font-weight:700;
+    color:black;
+    font-weight:bold;
     letter-spacing:3px;
-    font-size:14px;
-    mix-blend-mode:multiply;
+    transition:all .5s ease;
 }
 
-/* Video fade out layer */
-.video-fade{
+.enter-btn.hide{
+    opacity:0;
+    transform:scale(.85);
+}
+
+.fadeOut{
+    animation:fadeOut .8s forwards;
+}
+
+@keyframes fadeOut{
+    to{
+        opacity:0;
+        visibility:hidden;
+    }
+}
+
+/* =========================
+   MAIN SITE
+========================= */
+
+#mainSite{
     position:fixed;
     inset:0;
-    background:#000;
+    opacity:0;
+    visibility:hidden;
+    transition:opacity 1s ease;
+}
+
+#mainSite.show{
+    opacity:1;
+    visibility:visible;
+}
+
+#bgVideo{
+    position:absolute;
+    inset:0;
+    width:100%;
+    height:100%;
+    object-fit:cover;
+}
+
+#bgOverlay{
+    position:absolute;
+    inset:0;
+    background:rgba(0,0,0,.55);
+}
+
+.content{
+    position:relative;
     z-index:2;
-    pointer-events:none;
-    animation:fadeAway 0.75s ease forwards;
+    width:100%;
+    height:100%;
+    overflow-y:auto;
 }
 
-/* Fade black away to reveal video */
-@keyframes fadeAway{
-    from{ opacity:1; }
-    to{ opacity:0; }
+.header{
+    text-align:center;
+    padding:30px 20px 10px;
 }
 
-/* Logo + button reveal */
-@keyframes contentReveal{
-    from{
-        opacity:0;
-        transform:scale(0.95);
-    }
-    to{
-        opacity:1;
-        transform:scale(1);
-    }
+.logo{
+    width:280px;
+    max-width:80vw;
 }
 
-/* Button exit animation */
-@keyframes buttonExit{
-    from{
-        opacity:1;
-        transform:scale(1);
+.introText{
+    max-width:900px;
+    margin:20px auto;
+    padding:18px 24px;
+    border-radius:20px;
+    background:rgba(0,0,0,.30);
+    backdrop-filter:blur(12px);
+    -webkit-backdrop-filter:blur(12px);
+    line-height:1.6;
+}
+
+.showcase{
+    display:flex;
+    gap:30px;
+    padding:30px;
+    max-width:1400px;
+    margin:auto;
+    align-items:center;
+}
+
+.videoContainer{
+    flex:1.2;
+}
+
+.videoContainer video{
+    width:100%;
+    border-radius:20px;
+    display:block;
+}
+
+.infoPanel{
+    flex:1;
+    padding:25px;
+    border-radius:20px;
+    background:rgba(0,0,0,.30);
+    backdrop-filter:blur(12px);
+    -webkit-backdrop-filter:blur(12px);
+}
+
+.infoPanel h2{
+    margin-bottom:15px;
+}
+
+.infoPanel p{
+    line-height:1.7;
+}
+
+.controls{
+    display:flex;
+    gap:12px;
+    margin-top:25px;
+}
+
+.controls button{
+    border:none;
+    cursor:pointer;
+    padding:12px 20px;
+    border-radius:999px;
+    background:rgba(255,255,255,.20);
+    color:white;
+    backdrop-filter:blur(12px);
+}
+
+.contactSection{
+    display:none;
+    max-width:800px;
+    margin:30px auto 80px;
+    padding:30px;
+    border-radius:20px;
+    background:rgba(0,0,0,.30);
+    backdrop-filter:blur(12px);
+    text-align:center;
+}
+
+.contactSection.show{
+    display:block;
+}
+
+.contactSection h2{
+    margin-bottom:20px;
+}
+
+.contactSection p{
+    margin:10px 0;
+    font-size:18px;
+}
+
+@media(max-width:900px){
+
+    .showcase{
+        flex-direction:column;
+        padding:20px;
     }
-    to{
-        opacity:0;
-        transform:scale(0.85);
+
+    .videoContainer,
+    .infoPanel{
+        width:100%;
+    }
+
+    .controls{
+        justify-content:center;
+        flex-wrap:wrap;
+    }
+
+    .logo{
+        width:220px;
     }
 }
 </style>
 </head>
-
 <body>
 
-<video id="bgVideo" autoplay muted loop playsinline>
-    <source src="blue fog.mp4" type="video/mp4">
-</video>
+<!-- INTRO -->
 
-<div class="video-fade"></div>
-<div class="overlay"></div>
+<div id="intro">
 
-<div class="center-wrap">
+    <video id="introVideo" autoplay muted loop playsinline>
+        <source src="blue fog.mp4" type="video/mp4">
+    </video>
 
-    <div id="lottie"></div>
+    <div class="introOverlay"></div>
 
-    <div id="buttonWrapper">
+    <div class="center-wrap">
+
+        <div id="lottie"></div>
+
         <button class="enter-btn" id="enterBtn">
-            <span>ENTER SITE</span>
+            ENTER SITE
         </button>
+
+    </div>
+
+</div>
+
+<!-- MAIN SITE -->
+
+<div id="mainSite">
+
+    <video id="bgVideo" autoplay muted loop playsinline>
+        <source src="background.mp4" type="video/mp4">
+    </video>
+
+    <div id="bgOverlay"></div>
+
+    <div class="content">
+
+        <div class="header">
+
+            <img src="logo.png" class="logo" alt="Home View Solutions">
+
+            <div class="introText">
+                Our full interactive experience is currently in development.
+                In the meantime, explore a preview of how Home View Solutions
+                helps buyers visualize, customize and experience their future
+                home directly from a web browser.
+            </div>
+
+        </div>
+
+        <div class="showcase">
+
+            <div class="videoContainer">
+                <video id="featureVideo" autoplay muted loop playsinline>
+                    <source src="video_01.mp4" type="video/mp4">
+                </video>
+            </div>
+
+            <div class="infoPanel">
+
+                <h2 id="title"></h2>
+
+                <p id="description"></p>
+
+                <div class="controls">
+
+                    <button id="prevBtn">◀ Back</button>
+
+                    <button id="nextBtn">Next ▶</button>
+
+                    <button id="demoBtn" style="display:none;">
+                        Request Live Demo
+                    </button>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <div id="contactSection" class="contactSection">
+
+            <h2>Request a Real-Time Demo</h2>
+
+            <p><strong>Marie Du Toit</strong></p>
+            <p>825 963 4410</p>
+            <p>marie@homeviewsolutions.com</p>
+
+        </div>
+
     </div>
 
 </div>
 
 <script>
+
+/* =========================
+   LOTTIE
+========================= */
 
 const animation = lottie.loadAnimation({
     container: document.getElementById('lottie'),
@@ -187,21 +359,105 @@ const animation = lottie.loadAnimation({
     path: 'logo merge.json'
 });
 
-/* Freeze on first frame */
 animation.addEventListener('DOMLoaded', () => {
-    animation.goToAndStop(0, true);
+    animation.goToAndStop(0,true);
 });
 
-/* Click handler */
-document.getElementById('enterBtn').addEventListener('click', () => {
+document.getElementById('enterBtn').addEventListener('click', ()=>{
 
-    const wrapper = document.getElementById('buttonWrapper');
-
-    wrapper.classList.add('hide');
+    document.getElementById('enterBtn').classList.add('hide');
 
     animation.play();
 
 });
+
+animation.addEventListener('complete', ()=>{
+
+    document.getElementById('intro').classList.add('fadeOut');
+
+    setTimeout(()=>{
+        document.getElementById('mainSite').classList.add('show');
+    },800);
+
+});
+
+/* =========================
+   VIDEO CONTENT
+========================= */
+
+const slides = [
+
+{
+title:"Customize Finishes in Real Time",
+video:"video_01.mp4",
+text:"Explore a digital show home and instantly personalize finishes, colours, fixtures and materials. Every selection updates pricing in real time, helping buyers understand the impact of their choices immediately. No software installation is required — everything runs directly in a web browser on desktop, tablet or mobile."
+},
+
+{
+title:"Interactive Floor Plans & Layout Options",
+video:"video_02.mp4",
+text:"Switch between available floor plan layouts and immediately see the changes reflected in both the live 3D model and floor plan view. Structural options, room configurations and upgrade choices can be visualized instantly while associated costs are tracked automatically."
+},
+
+{
+title:"Experience the Finished Home",
+video:"video_03.mp4",
+text:"Once selections are complete, buyers can freely explore their personalized home and launch a real-time cinematic walkthrough featuring their exact choices. This creates a memorable experience that helps clients feel confident in their decisions before construction begins."
+}
+
+];
+
+let current = 0;
+
+const title = document.getElementById('title');
+const description = document.getElementById('description');
+const video = document.getElementById('featureVideo');
+const nextBtn = document.getElementById('nextBtn');
+const prevBtn = document.getElementById('prevBtn');
+const demoBtn = document.getElementById('demoBtn');
+
+function updateSlide(){
+
+    title.textContent = slides[current].title;
+    description.textContent = slides[current].text;
+
+    video.src = slides[current].video;
+    video.load();
+    video.play();
+
+    prevBtn.style.display = current === 0 ? "none" : "inline-block";
+
+    if(current === slides.length - 1){
+        nextBtn.style.display = "none";
+        demoBtn.style.display = "inline-block";
+    }else{
+        nextBtn.style.display = "inline-block";
+        demoBtn.style.display = "none";
+    }
+}
+
+nextBtn.addEventListener('click',()=>{
+    if(current < slides.length-1){
+        current++;
+        updateSlide();
+    }
+});
+
+prevBtn.addEventListener('click',()=>{
+    if(current > 0){
+        current--;
+        updateSlide();
+    }
+});
+
+demoBtn.addEventListener('click',()=>{
+    document.getElementById('contactSection')
+        .scrollIntoView({
+            behavior:'smooth'
+        });
+});
+
+updateSlide();
 
 </script>
 
