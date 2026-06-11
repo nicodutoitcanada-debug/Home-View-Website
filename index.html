@@ -552,7 +552,7 @@ html,body{
         <div class="showcase">
 
             <div class="videoContainer">
-                <video id="featureVideo" autoplay muted loop playsinline>
+                <video id="featureVideo" autoplay muted playsinline preload="auto">
                     <source src="video_01.mp4" type="video/mp4">
                 </video>
             </div>
@@ -677,26 +677,28 @@ const slides = [
 
 {
 title:"Customize Finishes in Real Time",
-video:"video_01.mp4",
+videoParts:["video_01.mp4", "video_01_02.mp4"],
 text:"Explore a digital show home and instantly personalize finishes, colours, fixtures and materials. Every selection updates pricing in real time, helping buyers understand the impact of their choices immediately. No software installation is required — everything runs directly in a web browser on desktop, tablet or mobile."
 },
 
 {
 title:"Interactive Floor Plans & Layout Options",
-video:"video_02.mp4",
+videoParts:["video_02.mp4", "video_02_02.mp4"],
 text:"Switch between available floor plan layouts and immediately see the changes reflected in both the live 3D model and floor plan view. Structural options, room configurations and upgrade choices can be visualized instantly while associated costs are tracked automatically."
 },
 
 {
 title:"Experience the Finished Home",
-video:"video_03.mp4",
+videoParts:["video_03.mp4"],
 text:"Once selections are complete, buyers can freely explore their personalized home and launch a real-time cinematic walkthrough featuring their exact choices. This creates a memorable experience that helps clients feel confident in their decisions before construction begins."
 }
 
 ];
 
 let current = 0;
+let currentVideoPart = 0;
 let isTransitioning = false;
+let nextVideoPreloader = null;
 
 const title = document.getElementById('title');
 const description = document.getElementById('description');
@@ -716,14 +718,52 @@ function setButtonsDisabled(disabled){
     demoBtn.disabled = disabled;
 }
 
+function playCurrentVideoPart(){
+
+    const activeSlide = slides[current];
+    const activeVideoPart = activeSlide.videoParts[currentVideoPart];
+
+    video.src = activeVideoPart;
+    video.load();
+
+    const playPromise = video.play();
+
+    if(playPromise !== undefined){
+        playPromise.catch(()=>{});
+    }
+
+    preloadNextVideoPart();
+}
+
+function preloadNextVideoPart(){
+
+    const activeSlide = slides[current];
+
+    nextVideoPreloader = null;
+
+    if(activeSlide.videoParts.length <= 1){
+        return;
+    }
+
+    const nextPartIndex = currentVideoPart + 1 < activeSlide.videoParts.length
+        ? currentVideoPart + 1
+        : 0;
+
+    nextVideoPreloader = document.createElement('video');
+    nextVideoPreloader.preload = 'auto';
+    nextVideoPreloader.muted = true;
+    nextVideoPreloader.playsInline = true;
+    nextVideoPreloader.src = activeSlide.videoParts[nextPartIndex];
+    nextVideoPreloader.load();
+}
+
 function updateSlideContent(){
 
     title.textContent = slides[current].title;
     description.textContent = slides[current].text;
 
-    video.src = slides[current].video;
-    video.load();
-    video.play();
+    currentVideoPart = 0;
+    playCurrentVideoPart();
 
     prevBtn.style.display = current === 0 ? "none" : "inline-block";
 
@@ -778,6 +818,25 @@ prevBtn.addEventListener('click',()=>{
     if(current > 0){
         transitionToSlide(current - 1);
     }
+});
+
+video.addEventListener('ended',()=>{
+
+    if(isTransitioning){
+        return;
+    }
+
+    const activeSlide = slides[current];
+
+    if(activeSlide.videoParts.length <= 1){
+        currentVideoPart = 0;
+    }else{
+        currentVideoPart = currentVideoPart + 1 < activeSlide.videoParts.length
+            ? currentVideoPart + 1
+            : 0;
+    }
+
+    playCurrentVideoPart();
 });
 
 updateSlideContent();
