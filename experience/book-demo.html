@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Book a Live Demo | Home View Solutions</title>
+  <style>
+    @font-face{
+      font-family:'MyriadPro-Light';
+      src:url('Font/MyriadPro-Light.woff2') format('woff2'),
+          url('Font/MyriadPro-Light.woff') format('woff');
+      font-weight:300;
+    }
+    @font-face{
+      font-family:'MyriadPro-Bold';
+      src:url('Font/MyriadPro-Bold.woff2') format('woff2'),
+          url('Font/MyriadPro-Bold.woff') format('woff');
+      font-weight:700;
+    }
+    *{box-sizing:border-box}
+    html,body{
+      margin:0;
+      min-height:100%;
+      background:#05080c;
+      color:#fff;
+      font-family:'MyriadPro-Light',Arial,sans-serif;
+    }
+    body{
+      min-height:100dvh;
+      display:grid;
+      place-items:center;
+      padding:24px;
+      background:
+        radial-gradient(circle at 50% 30%,rgba(24,65,94,.34),transparent 44%),
+        #05080c;
+    }
+    .card{
+      width:min(92vw,620px);
+      padding:30px;
+      text-align:center;
+      border:1px solid rgba(255,255,255,.18);
+      border-radius:26px;
+      background:rgba(0,0,0,.56);
+      backdrop-filter:blur(14px);
+    }
+    .logo{
+      width:96px;
+      margin:0 auto 18px;
+      display:block;
+    }
+    h1{
+      margin:0;
+      font-family:'MyriadPro-Bold',Arial,sans-serif;
+      font-size:clamp(28px,6vw,44px);
+      line-height:1;
+    }
+    p{
+      margin:14px auto 0;
+      max-width:470px;
+      color:rgba(255,255,255,.70);
+      font-size:17px;
+      line-height:1.35;
+    }
+    .actions{
+      display:grid;
+      gap:12px;
+      margin-top:24px;
+    }
+    .button{
+      min-height:52px;
+      padding:0 24px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      border:1px solid rgba(255,255,255,.28);
+      border-radius:999px;
+      background:rgba(205,24,18,.40);
+      color:#fff;
+      text-decoration:none;
+      font-family:'MyriadPro-Bold',Arial,sans-serif;
+      font-size:16px;
+      letter-spacing:.04em;
+      cursor:pointer;
+    }
+    .secondary{background:rgba(10,10,10,.72)}
+    .email{
+      margin-top:18px;
+      color:rgba(255,255,255,.60);
+      font-size:14px;
+      word-break:break-word;
+    }
+    .status{
+      min-height:18px;
+      margin-top:8px;
+      color:rgba(255,255,255,.55);
+      font-size:13px;
+    }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <img src="logo.png" class="logo" alt="Home View Solutions">
+    <h1>Request a Live Demo</h1>
+    <p>
+      We would be happy to show you the full Home View experience live
+      and answer questions about how it could work for your projects.
+    </p>
+
+    <div class="actions">
+      <a class="button" href="mailto:marie@homeviewsolutions.com?subject=Request%20Live%20Demo">
+        EMAIL MARIE
+      </a>
+
+      <button class="button secondary" id="copyEmailBtn" type="button">
+        COPY EMAIL ADDRESS
+      </button>
+    </div>
+
+    <div class="email">marie@homeviewsolutions.com</div>
+    <div class="status" id="status" aria-live="polite"></div>
+  </main>
+
+  <script>
+    const button = document.getElementById('copyEmailBtn');
+    const status = document.getElementById('status');
+    const email = 'marie@homeviewsolutions.com';
+
+    button.addEventListener('click', async () => {
+      try{
+        await navigator.clipboard.writeText(email);
+        status.textContent = 'Email address copied.';
+      }catch(err){
+        status.textContent = email;
+      }
+    });
+  </script>
+</body>
+</html>
