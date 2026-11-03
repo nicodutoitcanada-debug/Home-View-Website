@@ -11,6 +11,7 @@ on:
 
 permissions:
   contents: write
+  pages: write
 
 concurrency:
   group: sync-home-view-routes
@@ -74,6 +75,7 @@ jobs:
           PY
 
       - name: Commit application route updates
+        id: publish
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -81,4 +83,14 @@ jobs:
           if ! git diff --cached --quiet; then
             git commit -m "Mirror Home View game, dashboard, and CRM at branded domain routes"
             git push origin HEAD:main
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Request GitHub Pages rebuild for automated updates
+        if: steps.publish.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api -X POST "/repos/$GITHUB_REPOSITORY/pages/builds" || echo "Pages build request failed; the files are committed and can be published by a normal repository push."
