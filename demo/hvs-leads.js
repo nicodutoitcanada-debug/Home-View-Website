@@ -8,6 +8,9 @@
   // This is the dedicated HVS buyer/Builder Dashboard Supabase project.
   const DEMO_PROJECT_URL = 'https://jythgvjtulxivwmlicvi.supabase.co';
   const CONTACT_KEY = 'hvs-demo-buyer-contact-v1';
+  // Previous demo versions stored a private shared code in this browser.
+  // It is obsolete after Supabase Auth migration, so erase it automatically.
+  try{localStorage.removeItem('hvs-demo-live-leads-connection-v1');}catch(_){}
   let inFlight = Promise.resolve();
   let lastBuyer = '';
   const info = msg => { const el=byId('hvsLeadStatus'); if(el)el.textContent=msg; };
