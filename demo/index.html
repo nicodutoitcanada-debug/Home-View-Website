@@ -10932,6 +10932,11 @@ window.homeViewEndSession=async(message='Your session has ended.',options={})=>{
       console.warn('[HVS LEADS] End Session save could not be queued:',error);
     }
   }
+  if(options?.skipOnlineSave){
+    // This buyer has saved successfully or explicitly chosen not to save.
+    // A subsequent login/session must use a fresh lead identifier.
+    window.homeViewClearLeadSession?.();
+  }
   homeViewTeardownStarted=true;
   window.homeViewSessionIntentional=true;
   hvsRecoveryProbeToken++;
