@@ -1,13 +1,11 @@
-/* HOME VIEW SOLUTIONS - DEMO LIVE LEADS (no Arcware SDK changes)
-   Captures a snapshot of existing frontend settings/prices; sends only with
-   a signed-in local buyer profile and an explicit SAVE ONLINE choice.
-   Real secrets are never embedded in a published HTML/JS file.
+/* HOME VIEW SOLUTIONS | Authenticated online save; no Arcware SDK changes.
+   Saves buyer profiles only with a verified Supabase Auth access token.
+   The public publishable key is NOT a password or a server secret.
 */
 (() => {
   'use strict';
   const byId = id => document.getElementById(id);
-  const STORE_KEY = 'hvs-demo-live-leads-connection-v1';
-  // Public project URL only; the private HVS demo code stays on the testing device.
+  // This is the dedicated HVS buyer/Builder Dashboard Supabase project.
   const DEMO_PROJECT_URL = 'https://jythgvjtulxivwmlicvi.supabase.co';
   const CONTACT_KEY = 'hvs-demo-buyer-contact-v1';
   let inFlight = Promise.resolve();
@@ -31,7 +29,7 @@
     lastBuyer=name;
     const c=read(CONTACT_KEY)[name]||{};
     if(byId('hvsLeadBuyerName')) byId('hvsLeadBuyerName').value = c.name || getState()?.currentUser || '';
-    if(byId('hvsLeadBuyerEmail')) byId('hvsLeadBuyerEmail').value = c.email || '';
+    if(byId('hvsLeadBuyerEmail'))byId('hvsLeadBuyerEmail').value = window.HVSBuyerAuth?.user?.()?.email||c.email||'';
     if(byId('hvsLeadBuyerPhone')) byId('hvsLeadBuyerPhone').value = c.phone || '';
     for(const [id,field] of [['hvsLeadSaveOnline','saveOnline'],['hvsLeadContactRequested','contactRequested'],['hvsLeadMarketingConsent','marketingConsent']])
       if(byId(id))byId(id).checked=!!c[field];
@@ -42,25 +40,13 @@
     const all=read(CONTACT_KEY);
     all[name]={
       name:byId('hvsLeadBuyerName')?.value.trim()||'',
-      email:byId('hvsLeadBuyerEmail')?.value.trim()||'',
+      email:window.HVSBuyerAuth?.user?.()?.email||byId('hvsLeadBuyerEmail')?.value.trim()||'',
       phone:byId('hvsLeadBuyerPhone')?.value.trim()||'',
       saveOnline:!!byId('hvsLeadSaveOnline')?.checked,
       contactRequested:!!byId('hvsLeadContactRequested')?.checked,
       marketingConsent:!!byId('hvsLeadMarketingConsent')?.checked,
     };
     save(CONTACT_KEY,all);
-  }
-  function connect(){
-    const c=read(STORE_KEY);
-    const project=prompt('Supabase project URL (already filled for Home View Demo):',c.url||DEMO_PROJECT_URL);
-    if(project===null)return;
-    const url=project.trim().replace(/\/$/,'');
-    if(!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(url))return status('Enter a valid Supabase project URL.');
-    const code=prompt('Enter your private HVS demo access code (configured in Supabase Secrets):',c.code||'');
-    if(code===null)return;
-    if(code.length<16)return status('Access code must contain at least 16 characters.');
-    save(STORE_KEY,{url,code});
-    status('Live lead submission configured on this browser.');
   }
   function uuid(){
     if(crypto?.randomUUID)return crypto.randomUUID();
@@ -77,8 +63,12 @@
   }
   function buildPayload(source){
     const state=getState();if(!state?.currentUser)return null;
+    if(!window.homeViewCloudBuyerId?.())throw Error('Please sign in with BUYER LOGIN to save your home online.');
     const buyer=keyFor(state.currentUser);
     const profile=read(CONTACT_KEY)[buyer]||{};
+    const authUser=window.HVSBuyerAuth?.user?.();
+    if(authUser?.email)profile.email=authUser.email;
+    if(!profile.name)profile.name=state.currentUser;
     if(!profile.saveOnline)return null;
     if(!profile.name)throw new Error('Enter the buyer name before saving online.');
     if(profile.contactRequested && !profile.email && !profile.phone)throw new Error('Enter your email or phone in the account window to request a callback.');
@@ -115,12 +105,16 @@
     }
     // Serialize actual requests so SAVE followed by END SESSION keeps order.
     const work = async () => {
-      const config=read(STORE_KEY);
-      config.url = config.url || DEMO_PROJECT_URL;
-      if(!config.code)throw new Error('Click CONFIGURE LIVE LEADS and enter the private demo code once on this device.');
-      const res=await fetchWithTimeout(config.url+'/functions/v1/hvs-submit-lead',{
+      const jwt=await window.HVSBuyerAuth?.token?.();
+      if(!jwt)throw Error('Your buyer login has expired. Please sign in again.');
+      const c=window.HVS_DASHBOARD_CONFIG||{};
+      const url=c.url||DEMO_PROJECT_URL;
+      const pub=c.publishableKey;
+      if(!pub)throw Error('The public Home View account configuration is unavailable.');
+      const headers={'Content-Type':'application/json','Authorization':'Bearer '+jwt,'apikey':pub};
+      const res=await fetchWithTimeout(url+'/functions/v1/hvs-submit-lead',{
         method:'POST',
-        headers:{'Content-Type':'application/json','x-hvs-demo-code':config.code},
+        headers,
         body:JSON.stringify(payload),
         cache:'no-store',
       },12000);
@@ -131,9 +125,9 @@
       let phoneNote='No registered phone alerts yet.';
       if(payload.id){
         try {
-          const pushRes=await fetchWithTimeout(config.url+'/functions/v1/hvs-push-deliver',{
+          const pushRes=await fetchWithTimeout(url+'/functions/v1/hvs-push-deliver',{
             method:'POST',
-            headers:{'Content-Type':'application/json','x-hvs-demo-code':config.code},
+            headers,
             body:JSON.stringify({id:reply.id||payload.id}),
             cache:'no-store'
           },6500);
@@ -165,8 +159,6 @@
     const buyer=currentBuyer();
     if(buyer)try{sessionStorage.removeItem('hvs-lead-id-'+buyer);}catch(_){}
   };
-  // A short configuration flow: we never ship the demo access code on GitHub.
-  byId('hvsLeadConfigure')?.addEventListener('click',connect);
   byId('hvsLeadShareNow')?.addEventListener('click',()=>{
     syncBuyer();byId('hvsLeadSaveOnline').checked=true;saveContact();
     status('Submitting saved design…');
@@ -176,13 +168,6 @@
     byId(id)?.addEventListener('change',saveContact);
     byId(id)?.addEventListener('input',saveContact);
   }
-  // Keep original Save Progress behavior intact. This listener only adds online saving.
-  byId('hvsSaveNowButton')?.addEventListener('click',()=>{
-    syncBuyer();
-    if(!byId('hvsLeadSaveOnline')?.checked)return;
-    status('Saving online…');
-    send('save').catch(e=>status('Local progress saved, but online submission failed: '+e.message));
-  });
   // End Session calls homeViewSubmitBuyerLead from its own existing handler.
   // This is intentional: the Arcware shutdown function lives in a module and
   // can finish initializing after this deferred script has loaded.
