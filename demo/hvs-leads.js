@@ -25,7 +25,12 @@
   const keyFor = str => String(str || '').trim().toLowerCase();
   const read = (name, fallback={}) => {try{ return JSON.parse(localStorage.getItem(name) || 'null') || fallback;}catch(_){return fallback;}};
   const save = (name,value) => {try{localStorage.setItem(name,JSON.stringify(value));}catch(_){}};
-  function currentBuyer(){return keyFor(getState()?.currentUser);}
+  function currentBuyer(){
+    // Buyer IDs must be unique even when two buyers have the same display name
+    // on a shared showroom device. Never reuse another buyer's lead/session ID.
+    const id=window.homeViewCloudBuyerId?.();
+    return keyFor(id?'buyer-'+id:getState()?.currentUser);
+  }
   function syncBuyer(){
     const name = currentBuyer();
     if(!name || name===lastBuyer)return;
