@@ -1,0 +1,84 @@
+name: Publish Home View apps under www.homeviewsolutions.com
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/sync-home-view-apps.yml
+  schedule:
+    - cron: '17 13 * * *'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-home-view-routes
+  cancel-in-progress: false
+
+jobs:
+  mirror-apps:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out Home View website
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Download the latest Home View Demo and CRM
+        run: |
+          git clone --depth 1 https://github.com/nicodutoitcanada-debug/Home-View-Demo-Test.git "$RUNNER_TEMP/demo-source"
+          git clone --depth 1 https://github.com/nicodutoitcanada-debug/Home-View-CRM.git "$RUNNER_TEMP/crm-source"
+
+      - name: Publish same-origin apps with separate icons
+        run: |
+          set -euo pipefail
+
+          # Main game: copy all assets and existing Unreal/Arcware code without changing its functionality.
+          mkdir -p demo
+          rsync -a --delete --exclude='.git/' --exclude='.github/' "$RUNNER_TEMP/demo-source/" demo/
+
+          # Dashboard: independent installation and push worker under /dashboard/.
+          mkdir -p dashboard/Font
+          cp "$RUNNER_TEMP/demo-source/dashboard.html" dashboard/index.html
+          cp "$RUNNER_TEMP/demo-source/dashboard.html" dashboard/dashboard.html
+          cp "$RUNNER_TEMP/demo-source/dashboard-config.js" dashboard/dashboard-config.js
+          cp "$RUNNER_TEMP/demo-source/dashboard-push.js" dashboard/dashboard-push.js
+          cp "$RUNNER_TEMP/demo-source/dashboard-sw.js" dashboard/dashboard-sw.js
+          cp "$RUNNER_TEMP/demo-source/dashboard.webmanifest" dashboard/dashboard.webmanifest
+          cp "$RUNNER_TEMP/demo-source/dashboard-icon.png" dashboard/dashboard-icon.png
+          cp "$RUNNER_TEMP/demo-source/logo_2.png" dashboard/logo_2.png
+          cp -a "$RUNNER_TEMP/demo-source/Font/." dashboard/Font/
+
+          # Separate CRM remains connected to its existing Supabase CRM project.
+          mkdir -p crm
+          rsync -a --delete --exclude='.git/' --exclude='.github/' --exclude='supabase/' "$RUNNER_TEMP/crm-source/" crm/
+
+          # Make the dashboard's Home Screen app and push-click destination /dashboard/.
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          p = Path("dashboard/dashboard.webmanifest")
+          m = json.loads(p.read_text(encoding="utf-8"))
+          m["id"] = "./"
+          m["start_url"] = "./"
+          m["scope"] = "./"
+          m["icons"] = [{"src":"./dashboard-icon.png","sizes":"any","type":"image/png","purpose":"any"}]
+          p.write_text(json.dumps(m, indent=2) + "\n", encoding="utf-8")
+
+          sw = Path("dashboard/dashboard-sw.js")
+          code = sw.read_text(encoding="utf-8")
+          code = code.replace("new URL('./dashboard.html',self.registration.scope)", "new URL('./',self.registration.scope)")
+          sw.write_text(code, encoding="utf-8")
+          PY
+
+      - name: Commit application route updates
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add demo dashboard crm
+          if ! git diff --cached --quiet; then
+            git commit -m "Mirror Home View game, dashboard, and CRM at branded domain routes"
+            git push origin HEAD:main
+          fi
