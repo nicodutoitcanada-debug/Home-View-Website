@@ -91,12 +91,15 @@
    return result.length ? result[0] : null;
  }
  async function logOut(){
-   try{
-     const jwt=await token();
-     if(jwt)await call('/auth/v1/logout',{method:'POST',
-       headers:{...publicHeaders(),Authorization:'Bearer '+jwt}});
-   }catch(e){console.warn('[HOME VIEW AUTH] Remote sign-out unavailable',e);}
+   // Clear the local buyer session before the asynchronous remote request.
+   // A slow signout must never erase another account's newer login.
+   const old=session;
    save(null);
+   if(!old?.access_token)return;
+   try{
+     await call('/auth/v1/logout',{method:'POST',
+       headers:{...publicHeaders(),Authorization:'Bearer '+old.access_token}});
+   }catch(e){console.warn('[HOME VIEW AUTH] Remote sign-out unavailable',e);}
  }
  window.HVSBuyerAuth=Object.freeze({
    signIn,signUp,getUser,getSavedDesign,token,logOut,
