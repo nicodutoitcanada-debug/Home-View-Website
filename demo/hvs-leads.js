@@ -14,6 +14,12 @@
   let lastBuyer = '';
   const info = msg => { const el=byId('hvsLeadStatus'); if(el)el.textContent=msg; };
   const status = (msg) => { info(msg); console.info('[HVS LEADS]',msg); };
+  // Bound network waits so a paid streaming session does not stay blocked indefinitely.
+  const fetchWithTimeout=(url,options,ms)=>{
+    const controller=new AbortController();
+    const timer=setTimeout(()=>controller.abort(),ms);
+    return fetch(url,{...options,signal:controller.signal}).finally(()=>clearTimeout(timer));
+  };
   const getState = () => { try { return window.homeViewSavedState?.() || null; } catch(e){console.warn('[HVS LEADS] Cannot read profile',e);return null;} };
   const keyFor = str => String(str || '').trim().toLowerCase();
   const read = (name, fallback={}) => {try{ return JSON.parse(localStorage.getItem(name) || 'null') || fallback;}catch(_){return fallback;}};
@@ -112,12 +118,12 @@
       const config=read(STORE_KEY);
       config.url = config.url || DEMO_PROJECT_URL;
       if(!config.code)throw new Error('Click CONFIGURE LIVE LEADS and enter the private demo code once on this device.');
-      const res=await fetch(config.url+'/functions/v1/hvs-submit-lead',{
+      const res=await fetchWithTimeout(config.url+'/functions/v1/hvs-submit-lead',{
         method:'POST',
         headers:{'Content-Type':'application/json','x-hvs-demo-code':config.code},
         body:JSON.stringify(payload),
         cache:'no-store',
-      });
+      },12000);
       const reply=await res.json().catch(()=>({}));
       if(!res.ok || !reply.ok)throw new Error(reply.error||'Unable to save online.');
       // The existing lead receiver confirms database persistence first.
@@ -125,12 +131,12 @@
       let phoneNote='No registered phone alerts yet.';
       if(payload.id){
         try {
-          const pushRes=await fetch(config.url+'/functions/v1/hvs-push-deliver',{
+          const pushRes=await fetchWithTimeout(config.url+'/functions/v1/hvs-push-deliver',{
             method:'POST',
             headers:{'Content-Type':'application/json','x-hvs-demo-code':config.code},
             body:JSON.stringify({id:reply.id||payload.id}),
             cache:'no-store'
-          });
+          },6500);
           const push=await pushRes.json().catch(()=>({}));
           if(!pushRes.ok||!push.ok)throw new Error(push.error||'Phone push delivery failed.');
           phoneNote={
@@ -155,6 +161,10 @@
     return promise;
   }
   window.homeViewSubmitBuyerLead=(source='save')=>send(source);
+  window.homeViewClearLeadSession=()=>{
+    const buyer=currentBuyer();
+    if(buyer)try{sessionStorage.removeItem('hvs-lead-id-'+buyer);}catch(_){}
+  };
   // A short configuration flow: we never ship the demo access code on GitHub.
   byId('hvsLeadConfigure')?.addEventListener('click',connect);
   byId('hvsLeadShareNow')?.addEventListener('click',()=>{
