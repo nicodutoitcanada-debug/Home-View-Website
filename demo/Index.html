@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<title>DEMO</title>
+
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<style>
+body{
+margin:0;
+overflow:hidden;
+background:black;
+font-family:"Futura PT",sans-serif;
+}
+
+/* ===============================
+   PIXEL STREAM
+================================*/
+
+#video-container{
+width:100vw;
+height:100vh;
+position:relative;
+z-index:1;
+}
+
+/* ===============================
+   INTRO / LOADING OVERLAY
+================================*/
+
+#introOverlay{
+position:fixed;
+inset:0;
+background:black;
+display:flex;
+align-items:center;
+justify-content:center;
+z-index:5000;
+pointer-events:none;
+opacity:1;
+transition:opacity 1s ease;
+}
+
+#introVideo{
+position:absolute;
+inset:0;
+width:100vw;
+height:100vh;
+object-fit:cover;
+opacity:1;
+transition:opacity 0.8s ease;
+background:black;
+}
+
+#loadingIntroWrap{
+position:absolute;
+inset:0;
+display:flex;
+align-items:center;
+justify-content:center;
+background:black;
+opacity:0;
+visibility:hidden;
+overflow:hidden;
+transition:opacity 0.8s ease;
+}
+
+#loadingIntroBg{
+position:absolute;
+inset:0;
+width:100vw;
+height:100vh;
+object-fit:cover;
+opacity:1;
+background:black;
+}
+
+#loadingIntro{
+position:relative;
+z-index:1;
+width:min(32vw,320px);
+height:min(32vw,320px);
+max-width:320px;
+max-height:320px;
+min-width:140px;
+min-height:140px;
+}
+
+/* ===============================
+   BLACK FADE
+================================*/
+
+#blackFade{
+position:fixed;
+inset:0;
+background:black;
+opacity:1;
+z-index:4000;
+pointer-events:none;
+transition:opacity 1.2s ease;
+}
+
+
+
+/* ===============================
+   SCREENSHOT OVERLAY
+================================*/
+
+#screenshotOverlay{
+position:fixed;
+inset:0;
+display:none;
+align-items:center;
+justify-content:center;
+z-index:2000;
+pointer-events:none;
+}
+
+.overlayBox{
+background:rgba(0,0,0,0.5);
+padding:24px 32px;
+border-radius:16px;
+color:white;
+font-size:16px;
+display:flex;
+align-items:center;
+gap:16px;
+}
+
+.spinner{
+width:22px;
+height:22px;
+border:3px solid rgba(255,255,255,0.3);
+border-top:3px solid white;
+border-radius:50%;
+animation:spin 1s linear infinite;
+}
+
+@keyframes spin{
+to{transform:rotate(360deg);}
+}
+</style>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bodymovin/5.12.2/lottie.min.js"></script>
+
+<script type="module">
+let Application;
+let screenshotCounter = 1;
+let introVideoFinished = false;
+let loadingIntroAnimation = null;
+let homeViewLoadedHandled = false;
+
+/* startup send state */
+let initialLoadedSignalReceived = false;
+let homeViewRequestSent = false;
+let homeViewRetryTimer = null;
+let homeViewRetryCount = 0;
+let homeViewRetryStarted = false;
+let firstBackendResponseSeen = false;
+let videoPlayingHooked = false;
+let introTransitionTriggeredSend = false;
+
+import * as PixelStreamingWebSdk from
+"https://unpkg.com/@arcware-cloud/pixelstreaming-websdk@1.3.32/index.mjs";
+
+(() => {
+
+const { ArcwareInit } = PixelStreamingWebSdk;
+
+/* ===============================
+   RANDOM SEAT SELECTION
+================================*/
+
+const shareIds = [
+"share-49b3b4a2-4484-4850-b567-5ad8d7ac0df8",
+"share-49b3b4a2-4484-4850-b567-5ad8d7ac0df8",
+"share-49b3b4a2-4484-4850-b567-5ad8d7ac0df8"
+];
+
+const selectedShareId =
+shareIds[Math.floor(Math.random() * shareIds.length)];
+
+console.log("Arcware seat selected:", selectedShareId);
+
+const initResult = new ArcwareInit(
+{ shareId: selectedShareId },
+{
+initialSettings:{
+AutoConnect:true,
+AutoPlayVideo:true,
+StartVideoMuted:false
+},
+settings:{
+infoButton:false,
+micButton:false,
+audioButton:false,
+fullscreenButton:false,
+settingsButton:false,
+connectionStrengthIcon:false
+}
+}
+);
+
+Application = initResult.Application;
+
+/* ===============================
+   RESPONSES FROM UNREAL
+================================*/
+
+Application.getApplicationResponse((response) => {
+
+console.log("Response from Unreal:", response);
+firstBackendResponseSeen = true;
+
+try{
+const parsed = JSON.parse(response);
+
+/* Screenshot flow */
+
+if(parsed.screenshot === "generating"){
+showOverlay("Generating high resolution image");
+}
+
+/* Startup flow */
+
+if(isLoadedSignal(parsed)){
+handleLoadedSignal();
+}
+
+if(isHomeViewLevelLoadedSignal(parsed)){
+handleHomeViewLevelLoaded();
+}
+
+}catch(e){}
+
+/* Legacy screenshot callback */
+
+if(typeof response === "string" && response.startsWith("CreateScreenshot")){
+createFile(window.file);
+}
+
+if(!homeViewLoadedHandled){
+startHomeViewRetryLoop("first backend response");
+}
+
+});
+
+/* ===============================
+   ATTACH STREAM
+================================*/
+
+setTimeout(() => {
+document
+.getElementById("video-container")
+.appendChild(Application.rootElement);
+hookStreamVideoEvents();
+}, 0);
+
+/* ===============================
+   INTRO SEQUENCE
+================================*/
+
+startIntroSequence();
+startHomeViewRetryLoop("startup");
+
+
+window.file = Application.webRtcController.file;
+
+})();
+
+/* ===============================
+   BACKEND MESSAGE HELPERS
+================================*/
+
+function getBackendStateValue(parsed){
+if(typeof parsed?.Game === "string") return parsed.Game;
+if(typeof parsed?.game === "string") return parsed.game;
+if(typeof parsed?.loaded === "string") return parsed.loaded;
+return null;
+}
+
+function isLoadedSignal(parsed){
+const value = getBackendStateValue(parsed);
+return value === "Loaded" || value === "loaded";
+}
+
+function isHomeViewLevelLoadedSignal(parsed){
+const value = getBackendStateValue(parsed);
+return value === "HomeViewLevelLoaded" || value === "homeViewLevelLoaded";
+}
+
+function handleLoadedSignal(){
+if(initialLoadedSignalReceived){
+return;
+}
+
+initialLoadedSignalReceived = true;
+console.log('Detected backend loaded message. Starting functional-style homeViewDemo retries.');
+updateHomeViewStatus('Backend reported Loaded. Trying homeViewDemo startup message…');
+attemptHomeViewDemoSend("backend loaded");
+startHomeViewRetryLoop("backend loaded");
+}
+
+function startHomeViewRetryLoop(source){
+if(homeViewLoadedHandled){
+return;
+}
+
+if(!homeViewRetryStarted){
+console.log(`Starting homeViewDemo retry loop from ${source}`);
+homeViewRetryStarted = true;
+}
+
+updateHomeViewStatus(`Waiting for Home View to load… attempts so far: ${homeViewRetryCount}`);
+
+if(homeViewRetryTimer){
+return;
+}
+
+homeViewRetryTimer = setInterval(() => {
+if(homeViewLoadedHandled){
+clearInterval(homeViewRetryTimer);
+homeViewRetryTimer = null;
+updateHomeViewStatus('Home View loaded.');
+return;
+}
+
+attemptHomeViewDemoSend(`retry ${homeViewRetryCount + 1}`);
+}, 1200);
+}
+
+function getHomeViewPayloadVariants(){
+return [
+'{"load":"homeViewDemo"}',
+'"{\"load\":\"homeViewDemo\"}"'
+];
+}
+
+function attemptHomeViewDemoSend(source = "auto"){
+if(homeViewLoadedHandled){
+return;
+}
+
+homeViewRetryCount++;
+const variants = getHomeViewPayloadVariants();
+let sentAny = false;
+
+for(const payload of variants){
+const sent = sendToUnreal(payload, `${source}`, homeViewRetryCount);
+sentAny = sentAny || sent;
+}
+
+// Last-resort fallback: your Unreal shortcut proves the 0 key loads this level.
+// This sends the same keyboard input path that works when you physically press 0.
+if(homeViewRetryCount >= 4){
+const keySent = sendZeroKeyFallbackToUnreal(`${source}`, homeViewRetryCount);
+sentAny = sentAny || keySent;
+}
+
+homeViewRequestSent = homeViewRequestSent || sentAny;
+updateHomeViewStatus(`Tried startup message / 0-key fallback (${source}) — attempt ${homeViewRetryCount}.`);
+}
+function sendToUnreal(payload, source = "unknown", count = 0){
+
+const message = typeof payload === "string" ? payload : JSON.stringify(payload);
+let sent = false;
+let lastError = null;
+
+const trySend = (fn, value, label) => {
+if(sent || typeof fn !== "function") return;
+try{
+fn(value);
+sent = true;
+console.log(`Sent to Unreal via ${label} from ${source} #${count}:`, value);
+}catch(e){
+lastError = e;
+}
+};
+
+// Functional-version style first
+trySend(Application?.emitUIInteraction?.bind(Application), message, "Application.emitUIInteraction");
+trySend(Application?.webRtcController?.emitUIInteraction?.bind(Application.webRtcController), message, "Application.webRtcController.emitUIInteraction");
+trySend(Application?.stream?.emitUIInteraction?.bind(Application.stream), message, "Application.stream.emitUIInteraction");
+trySend(Application?.webRtcController?.stream?.emitUIInteraction?.bind(Application.webRtcController.stream), message, "Application.webRtcController.stream.emitUIInteraction");
+
+// Extra deep fallbacks
+trySend(Application?.webRtcController?.sendMessageController?.sendMessageToStreamer?.bind(Application.webRtcController.sendMessageController), "UIInteraction", "sendMessageToStreamer(type)");
+if(!sent){
+try{
+const controller = Application?.webRtcController?.sendMessageController;
+if(controller?.sendMessageToStreamer){
+controller.sendMessageToStreamer("UIInteraction", message);
+sent = true;
+console.log(`Sent to Unreal via sendMessageToStreamer(UIInteraction, message) from ${source} #${count}:`, message);
+}
+}catch(e){
+lastError = e;
+}
+}
+
+if(!sent){
+console.warn("Could not send to Unreal:", message, source, count, lastError || "");
+}
+
+return sent;
+}
+
+function sendZeroKeyFallbackToUnreal(source = "unknown", count = 0){
+try{
+const targets = [];
+const addTarget = (el) => {
+if(el && !targets.includes(el)) targets.push(el);
+};
+
+addTarget(window);
+addTarget(document);
+addTarget(document.body);
+addTarget(document.getElementById("video-container"));
+addTarget(document.querySelector("canvas"));
+addTarget(document.querySelector("video"));
+
+try{ document.body?.focus?.(); }catch(_e){}
+ try{ document.getElementById("video-container")?.focus?.(); }catch(_e){}
+try{ document.querySelector("canvas")?.focus?.(); }catch(_e){}
+try{ document.querySelector("video")?.focus?.(); }catch(_e){}
+
+const makeKeyEvent = (type) => new KeyboardEvent(type, {
+key: "0",
+code: "Digit0",
+location: 0,
+ctrlKey: false,
+shiftKey: false,
+altKey: false,
+metaKey: false,
+repeat: false,
+bubbles: true,
+cancelable: true,
+composed: true
+});
+
+for(const target of targets){
+try{
+target.dispatchEvent(makeKeyEvent("keydown"));
+target.dispatchEvent(makeKeyEvent("keypress"));
+target.dispatchEvent(makeKeyEvent("keyup"));
+}catch(_e){}
+}
+
+const legacyTypes = ["keydown", "keypress", "keyup"];
+for(const target of targets){
+for(const type of legacyTypes){
+try{
+const ev = new Event(type, { bubbles: true, cancelable: true, composed: true });
+Object.defineProperty(ev, "key", { get: () => "0" });
+Object.defineProperty(ev, "code", { get: () => "Digit0" });
+Object.defineProperty(ev, "keyCode", { get: () => 48 });
+Object.defineProperty(ev, "which", { get: () => 48 });
+Object.defineProperty(ev, "charCode", { get: () => type === "keypress" ? 48 : 0 });
+target.dispatchEvent(ev);
+}catch(_e){}
+}
+}
+
+console.log(`Sent 0-key fallback to Pixel Streaming input from ${source} #${count}`);
+return true;
+}catch(e){
+console.warn("0-key fallback failed", e);
+return false;
+}
+}
+function updateHomeViewStatus(message){
+// Visible troubleshooting status was removed. Keep this no-op so startup retry logic stays unchanged.
+}
+
+function hookStreamVideoEvents(){
+if(videoPlayingHooked){
+return;
+}
+videoPlayingHooked = true;
+
+const install = () => {
+const root = document.getElementById("video-container");
+if(!root) return false;
+const video = root.querySelector("video");
+if(!video) return false;
+
+video.addEventListener("playing", () => {
+if(homeViewLoadedHandled) return;
+updateHomeViewStatus("Video started playing. Retrying homeViewDemo…");
+attemptHomeViewDemoSend("video playing");
+startHomeViewRetryLoop("video playing");
+}, { once:false });
+
+video.addEventListener("loadeddata", () => {
+if(homeViewLoadedHandled) return;
+attemptHomeViewDemoSend("video loadeddata");
+}, { once:false });
+
+return true;
+};
+
+if(install()) return;
+
+const observer = new MutationObserver(() => {
+if(install()){
+observer.disconnect();
+}
+});
+
+observer.observe(document.getElementById("video-container"), { childList:true, subtree:true });
+}
+
+/* ===============================
+   INTRO / LOADING FLOW
+================================*/
+
+function startIntroSequence(){
+
+setupLoadingIntroLottie();
+
+const introVideo = document.getElementById("introVideo");
+let earlyFadeTriggered = false;
+
+const triggerEarlyFade = () => {
+if(earlyFadeTriggered || introVideoFinished){
+return;
+}
+earlyFadeTriggered = true;
+transitionToLoadingIntro();
+};
+
+introVideo.addEventListener("ended", transitionToLoadingIntro);
+introVideo.addEventListener("error", transitionToLoadingIntro);
+introVideo.addEventListener("timeupdate", () => {
+if(!Number.isFinite(introVideo.duration) || introVideo.duration <= 0){
+return;
+}
+if(introVideo.currentTime >= Math.max(0, introVideo.duration - 1)){
+triggerEarlyFade();
+}
+});
+introVideo.addEventListener("loadedmetadata", () => {
+if(Number.isFinite(introVideo.duration) && introVideo.duration > 1){
+setTimeout(triggerEarlyFade, Math.max(0, (introVideo.duration - 1) * 1000));
+}
+});
+
+const playPromise = introVideo.play();
+
+if(playPromise && typeof playPromise.catch === "function"){
+playPromise.catch(() => {
+transitionToLoadingIntro();
+});
+}
+
+/* Fallback in case the video never fires ended */
+setTimeout(() => {
+if(!introVideoFinished){
+transitionToLoadingIntro();
+}
+}, 12000);
+
+}
+
+function setupLoadingIntroLottie(){
+
+const container = document.getElementById("loadingIntro");
+
+loadingIntroAnimation = lottie.loadAnimation({
+container,
+renderer:"svg",
+loop:true,
+autoplay:false,
+path:"loading intro.json"
+});
+
+}
+
+function transitionToLoadingIntro(){
+
+if(introVideoFinished){
+return;
+}
+
+introVideoFinished = true;
+
+if(!introTransitionTriggeredSend && !homeViewLoadedHandled){
+introTransitionTriggeredSend = true;
+updateHomeViewStatus("Loading screen active. Trying homeViewDemo…");
+attemptHomeViewDemoSend("loading intro transition");
+startHomeViewRetryLoop("loading intro transition");
+}
+
+const introVideo = document.getElementById("introVideo");
+const loadingWrap = document.getElementById("loadingIntroWrap");
+const loadingBg = document.getElementById("loadingIntroBg");
+
+loadingWrap.style.visibility = "visible";
+
+const playBg = () => {
+const bgPromise = loadingBg.play();
+if(bgPromise && typeof bgPromise.catch === "function"){
+bgPromise.catch(() => {});
+}
+};
+
+playBg();
+loadingWrap.style.opacity = 1;
+introVideo.style.opacity = 0;
+
+setTimeout(() => {
+introVideo.pause();
+introVideo.style.display = "none";
+
+if(loadingIntroAnimation){
+loadingIntroAnimation.play();
+}
+}, 500);
+
+}
+
+function handleHomeViewLevelLoaded(){
+
+if(homeViewLoadedHandled){
+return;
+}
+
+homeViewLoadedHandled = true;
+updateHomeViewStatus("Home View loaded.");
+
+if(homeViewRetryTimer){
+clearInterval(homeViewRetryTimer);
+homeViewRetryTimer = null;
+}
+
+finishLoadingSequence();
+
+}
+
+function finishLoadingSequence(){
+
+transitionToLoadingIntro();
+
+const introOverlay = document.getElementById("introOverlay");
+const blackFade = document.getElementById("blackFade");
+
+setTimeout(() => {
+introOverlay.style.opacity = 0;
+}, 100);
+
+setTimeout(() => {
+blackFade.style.opacity = 0;
+}, 700);
+
+setTimeout(() => {
+if(loadingIntroAnimation){
+loadingIntroAnimation.stop();
+}
+const loadingBg = document.getElementById("loadingIntroBg");
+if(loadingBg){
+loadingBg.pause();
+}
+if(introOverlay) introOverlay.remove();
+if(blackFade) blackFade.remove();
+}, 2000);
+
+}
+
+/* ===============================
+   SCREENSHOT FUNCTIONS
+================================*/
+
+function showOverlay(message){
+document.getElementById("overlayText").innerText = message;
+document.getElementById("screenshotOverlay").style.display = "flex";
+}
+
+function hideOverlay(){
+document.getElementById("screenshotOverlay").style.display = "none";
+}
+
+function createFile(file){
+
+const blob = new Blob(file.data, { type: file.mimetype });
+
+const counterString = String(screenshotCounter).padStart(2, "0");
+const fileName = `screenshot${counterString}${file.extension}`;
+
+if(window.showSaveFilePicker){
+
+(async() => {
+
+try{
+
+const handle = await window.showSaveFilePicker({
+suggestedName:fileName,
+types:[{description:"PNG Image",accept:{"image/png":[".png"]}}]
+});
+
+hideOverlay();
+
+const writable = await handle.createWritable();
+await writable.write(blob);
+await writable.close();
+
+}catch(err){
+hideOverlay();
+}
+
+})();
+
+}else{
+
+const url = URL.createObjectURL(blob);
+const a = document.createElement("a");
+
+a.href = url;
+a.download = fileName;
+
+document.body.appendChild(a);
+a.click();
+document.body.removeChild(a);
+
+URL.revokeObjectURL(url);
+
+document.getElementById("overlayText").innerText =
+"Your image has been saved";
+
+setTimeout(hideOverlay, 2000);
+
+}
+
+screenshotCounter++;
+
+}
+</script>
+
+</head>
+
+<body>
+
+<div id="video-container" tabindex="0"></div>
+
+<!-- INTRO / LOADING OVERLAY -->
+
+<div id="introOverlay">
+<video
+id="introVideo"
+src="logo 01.mp4"
+muted
+playsinline
+preload="auto">
+</video>
+
+<div id="loadingIntroWrap">
+<video
+id="loadingIntroBg"
+src="LOADING_BG.mp4"
+muted
+playsinline
+autoplay
+loop
+preload="auto">
+</video>
+<div id="loadingIntro"></div>
+</div>
+</div>
+
+<div id="blackFade"></div>
+
+<!-- SCREENSHOT OVERLAY -->
+
+<div id="screenshotOverlay">
+<div class="overlayBox">
+<div class="spinner"></div>
+<div id="overlayText">Generating high resolution image</div>
+</div>
+</div>
+
+</body>
+</html>
