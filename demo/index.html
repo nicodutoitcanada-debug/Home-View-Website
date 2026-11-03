@@ -5507,7 +5507,7 @@ document.addEventListener('DOMContentLoaded',()=>{
      <form id="hvsLoginForm"><label class="hvsField" for="hvsLoginUsername">USERNAME</label><input id="hvsLoginUsername" class="hvsTextInput" autocomplete="username" required maxlength="48"><label class="hvsField" for="hvsLoginPassword">PASSWORD</label><input id="hvsLoginPassword" class="hvsTextInput" type="password" autocomplete="current-password" required><div class="hvsFormActions"><button class="hvsActionButton primary" type="submit">LOG IN</button><button class="hvsActionButton" id="hvsCreateToggle" type="button">CREATE ACCOUNT</button></div><div id="hvsLoginInlineError" role="alert" hidden></div></form>
      <form id="hvsCreateForm" hidden><div class="hvsSecondaryHeading">CREATE A USER ACCOUNT</div><label class="hvsField" for="hvsCreateUsername">USERNAME</label><input id="hvsCreateUsername" class="hvsTextInput" autocomplete="username" maxlength="48" required><label class="hvsField" for="hvsCreatePassword">PASSWORD (MIN 8 CHARACTERS)</label><input id="hvsCreatePassword" class="hvsTextInput" type="password" autocomplete="new-password" minlength="8" required><div class="hvsFormActions"><button type="submit" class="hvsActionButton primary">CREATE USER</button><button type="button" class="hvsActionButton" id="hvsCancelCreate">BACK</button></div></form>
    </div>
-   <div id="hvsSignedIn" hidden><p class="hvsAccountSummary" id="hvsWelcomeText"></p><div class="hvsFormActions"><button type="button" class="hvsActionButton" id="hvsLogoutButton">LOG OUT</button><button type="button" class="hvsActionButton primary" id="hvsSaveNowButton">SAVE PROGRESS</button></div><section id="hvsLiveLeadCapture" aria-label="Save your home online">
+   <div id="hvsSignedIn" hidden><p class="hvsAccountSummary" id="hvsWelcomeText"></p><div class="hvsFormActions"><button type="button" class="hvsActionButton" id="hvsLogoutButton">LOG OUT</button><button type="button" class="hvsActionButton primary" id="hvsSaveNowButton">SAVE HOME</button></div><section id="hvsLiveLeadCapture" aria-label="Save your home online">
     <div class="hvsSecondaryHeading">SAVE YOUR HOME &amp; CONTACT THE BUILDER</div>
     <p class="hvsSettingInfo">Demonstration only. Use fictional buyer information. Save a design online independently of requesting a callback.</p>
     <label class="hvsField" for="hvsLeadBuyerName">BUYER NAME</label><input class="hvsTextInput" id="hvsLeadBuyerName" maxlength="100" autocomplete="name" placeholder="Your name">
@@ -8166,7 +8166,9 @@ function hvsSetConfig(key,value){
     if(typeof key!=='string'||!key.trim()||key.length>128||typeof value==='undefined')return false;
     const valid= value===null||typeof value==='string'||typeof value==='number'||typeof value==='boolean'||(typeof value==='object'&&JSON.stringify(value).length<4096);
     if(!valid)return false;
-    hvsCurrentProfile().settings[key.trim()]=value;hvsPersistProfile();return true;
+    hvsCurrentProfile().settings[key.trim()]=value;hvsPersistProfile();
+    window.HVSDesignRestore?.noteSetting?.(key.trim(),value);
+    return true;
 }
 // Seen-once flag is per signed-in local profile; for guests, it survives
 // repeated trigger messages for the lifetime of this browser page.
@@ -8230,107 +8232,34 @@ window.homeViewReceiveProjectChange=function(message){
 };
 window.homeViewDebugCostUpdate=(id,amount)=>window.homeViewReceiveProjectChange({CostUpdate:{id,amount}});
 window.homeViewDebugConfigUpdate=(key,value)=>window.homeViewReceiveProjectChange({ConfigUpdate:{key,value}});
-// SAFE_LOGIN_MATERIAL_RESTORE: Local account stores all design settings,
-// but login must never blindly replay {property}, {layout} or restoreUserState.
-// Those navigation/level commands previously teleported the player.
-// Only changed material Level Variant receiver messages are sent to Unreal.
-let hvsMaterialRestoreToken=0;
-function hvsGuestHasCustomDesign(){
-    const p=hvsGuestProfile||{};
-    for(const [key,value] of Object.entries(p.settings||{})){
-        if(key==='UpstairsLayoutOfferSeen'||key==='PropertyOfferSeen')continue;
-        if(key==='PropertyChoice'&&value==='one')continue;
-        if(key==='FirstFloorLayout'&&value==='lounge')continue;
-        if(Object.prototype.hasOwnProperty.call(HVS_DEFAULT_FINISH_SETTINGS,key)){
-            if(String(value)!==String(HVS_DEFAULT_FINISH_SETTINGS[key]))return true;
-            continue;
-        }
-        if(value!==null&&value!==undefined&&value!=='')return true;
-    }
-    return p.budget!==null&&p.budget!==undefined;
-}
-function hvsRestoreSavedMaterialVariants(previousSettings,username){
-    const profile=hvsStore.profiles[hvsNormalizeName(username)];
-    if(!profile||!hvsCurrentAccount)return;
-    const current={...hvsEnsureFinishDefaults(profile).settings};
-    const original={...HVS_DEFAULT_FINISH_SETTINGS,...(previousSettings||{})};
-    const allKeys=[
-        'Kitchen_solid_inset','Kitchen_Top_glass','landscaping',
-        ...['01','02','04','06','07','09','03','05','islandOnly','10','carpet',
-            'wgCup','wgCounter','wgBack','wuCup','wuCounter','wuBack',
-            'wmCup','wmCounter','wmBack','washTile','railing','cladding',
-            'wallColor','wallFeatLiving','wallFeatOffice','wallFeatMainBed']
-            .map(zone=>HVS_KITCHEN_ZONE_KEYS[zone])
-    ];
-    if(current.Kitchen_finish_all!==undefined)allKeys.unshift('Kitchen_finish_all');
-    const commands=[];
-    for(const key of new Set(allKeys)){
-        if(!key||current[key]===undefined)continue;
-        if(current[key]!==original[key])commands.push({[key]:current[key]});
-    }
-    if(!commands.length)return;
-    const token=++hvsMaterialRestoreToken;
-    const loginKey=hvsNormalizeName(username);
-    let attempts=0;
-    function dispatchWhenReady(){
-        if(token!==hvsMaterialRestoreToken||
-           hvsNormalizeName(hvsCurrentAccount?.name)!==loginKey||
-           window.homeViewSessionIntentional)return;
-        // The stream is ready only after its first visible decoded video.
-        // No changes during Unreal's level load or while the video is pending.
-        if(window.homeViewLevelReady!==true||typeof window.homeViewSend!=='function'){
-            if(++attempts<60)setTimeout(dispatchWhenReady,500);
-            else console.warn('[ACCOUNT RESTORE] Stream not ready for material restore.');
-            return;
-        }
-        commands.forEach((command,index)=>setTimeout(()=>{
-            if(token===hvsMaterialRestoreToken&&
-               hvsNormalizeName(hvsCurrentAccount?.name)===loginKey&&
-               !window.homeViewSessionIntentional)
-                window.homeViewSend?.(command);
-        },index*140));
-        console.info('[ACCOUNT RESTORE] Restoring',commands.length,
-            'saved material selections without property/layout navigation.');
-    }
-    setTimeout(dispatchWhenReady,900);
-}
-
-function hvsRestoreToUnreal(){
-    if(!hvsCurrentAccount||typeof window.homeViewSend!=='function')return;
+// HVS_SAVED_DESIGN_BRIDGE: all scene-restore timing, MP4/Lottie and Unreal commands
+// are in hvs-design-restore.js. Buyer values are browser localStorage, not GitHub.
+function hvsBeginSavedHomeRestore(username, onComplete){
     const profile=hvsCurrentProfile();
-    hvsSynchronizeLayoutCost(profile);
-    const payload={restoreUserState:{username:hvsCurrentAccount.name,settings:{...profile.settings},costOverrides:{...profile.costOverrides},budget:profile.budget,priceCatalog:{...hvsStore.catalog},layoutOptions:{...hvsStore.layoutOptions}}};
-    if(window.homeViewSend(payload))console.info('[SAVE] Sent local profile to Unreal. The Unreal Blueprint must handle restoreUserState to apply it.');
-    // Explicitly reapply selected upstairs layout for the existing Unreal
-    // Blueprint contract. This also works while restoreUserState is pending.
-    const layout=profile.settings?.FirstFloorLayout;
-    if(layout==='lounge'||layout==='bedroom')window.homeViewSend({layout});
-    // An EXPLICIT saved-profile restore can change the live property.
-    // Otherwise the packaged Property One stays in place untouched.
-    if(['one','two'].includes(profile.settings?.PropertyChoice) &&
-       window.homeViewSend({property:profile.settings.PropertyChoice})){
-        hvsLivePropertyChoice=profile.settings.PropertyChoice;
-        hvsRefreshPropertyChoices();
+    if(!window.HVSDesignRestore?.start){
+        console.error('[HVS RESTORE] hvs-design-restore.js did not load.');
+        hvsShowBudgetToast('PERSONALIZED HOME LOADER UNAVAILABLE');
+        onComplete?.(false);
+        return;
     }
-    // Resend individual finish Blueprint keys for existing game receivers.
-    // The restoreUserState payload remains available for future bulk restore.
-    const settings={...hvsEnsureFinishDefaults(profile).settings};
-    const finishCommands=[];
-    finishCommands.push({Kitchen_solid_inset:settings.Kitchen_solid_inset});
-    finishCommands.push({Kitchen_Top_glass:settings.Kitchen_Top_glass});
-    finishCommands.push({landscaping:settings.landscaping});
-    if(settings.Kitchen_finish_all)finishCommands.push({Kitchen_finish_all:settings.Kitchen_finish_all});
-    for(const zone of ['01','02','04','06','07','09','03','05','islandOnly','10','carpet',
-        'wgCup','wgCounter','wgBack','wuCup','wuCounter','wuBack','wmCup','wmCounter','wmBack','washTile','railing','cladding',
-        'wallColor','wallFeatLiving','wallFeatOffice','wallFeatMainBed']){
-        const key=HVS_KITCHEN_ZONE_KEYS[zone];
-        finishCommands.push({[key]:settings[key]});
-    }
-    const requestedUser=hvsNormalizeName(hvsCurrentAccount.name);
-    finishCommands.forEach((command,index)=>setTimeout(()=>{
-        if(hvsNormalizeName(hvsCurrentAccount?.name)===requestedUser)
-            window.homeViewSend?.(command);
-    },120+(index*110)));
+    const keys=[...new Set(Object.values(HVS_KITCHEN_ZONE_KEYS))];
+    window.HVSDesignRestore.start({
+        settings:{...profile.settings},
+        defaults:{...HVS_DEFAULT_FINISH_SETTINGS},
+        finishKeys:keys,
+        onProperty:property=>{
+            // Sync only the frontend indicator: the restore module sends the
+            // actual {property} message to Unreal (if a change is required).
+            hvsLivePropertyChoice=property;
+            hvsRefreshPropertyChoices();
+        },
+        onLayout:layout=>{
+            window.homeViewApplyFirstFloorLayout?.(layout);
+            hvsSynchronizeLayoutCost(hvsCurrentProfile());
+            hvsRenderCost();
+        },
+        onComplete
+    });
 }
 // UNREAL OWNS ALL PACKAGED DEFAULTS. Do NOT send the selected property,
 // backsplash, wall colors, layout, finishes, or other default settings when
@@ -8380,7 +8309,7 @@ function hvsCloseLoginAfterSuccess(title,description){
         if(!document.body.classList.contains('hvs-login-exiting'))return;
         hvsCloseLogin();
         hvsRenderLogin();
-        showHomeViewAnimatedStatus(title,description);
+        if(!window.HVSDesignRestore?.active?.())showHomeViewAnimatedStatus(title,description);
         // Safari may still be restoring its full viewport after dismissing
         // the keyboard or iOS password autofill sheet. Correct only this
         // accepted-login case, using the existing live Pixel Streaming session.
@@ -8508,23 +8437,22 @@ async function hvsHandleLogin(event){
         }
         hvsCurrentProfile();hvsGuestProfile=hvsEmptyProfile();hvsPreviousTotal=null;hvsLastChangedKey=null;hvsOverBudget=false;
         hvsById('hvsLoginPassword').value='';
-        // The calculator, budget and UI use the authenticated profile.
-        // Material variants may be restored after video is confirmed ready;
-        // never automatically send property/layout commands on login.
-        ++hvsMaterialRestoreToken;
+        // The calculator is restored immediately from the local buyer profile.
+        // Unreal property, layout and finish variants restore behind the branded
+        // loading cover, only after the existing stream is ready.
         hvsSyncLayoutUiToProfile();hvsSyncFinishUiToProfile();
-        if(hadSavedDesign&&!keepCurrentGuestDesign)
-            hvsRestoreSavedMaterialVariants(previousGuestSettings,account.name);
+        const resumeSave=hvsResumeSaveAfterLogin;
+        hvsResumeSaveAfterLogin=false;
         hvsCloseLoginAfterSuccess(
             `Welcome back ${hvsCurrentAccount.name}`,
             hvsIsAdmin()
                 ? 'Your admin privileges are now active. You can adjust default settings.'
                 : 'Your saved project is ready.'
         );
-        if(hvsResumeSaveAfterLogin){
-            hvsResumeSaveAfterLogin=false;
-            setTimeout(()=>window.homeViewSaveFromTop?.(),1000);
-        }
+        hvsBeginSavedHomeRestore(account.name,success=>{
+            if(resumeSave&&success)window.homeViewSaveFromTop?.();
+            else if(resumeSave)hvsShowBudgetToast('RESTORE INCOMPLETE — RETRY BEFORE SAVING');
+        });
     }catch(error){
         const message=error?.message||'Login could not be completed. Please try again.';
         hvsLoginError(message);hvsAuthNotice('');
@@ -8543,11 +8471,14 @@ async function hvsCreateUser(event){
         if(!hvsPersist()){delete hvsStore.accounts[key];delete hvsStore.profiles[key];hvsAuthNotice('Browser storage unavailable. Account was not created.');return;}
         hvsCurrentAccount={name,role:'user'};hvsGuestProfile=hvsEmptyProfile();hvsCreatingAccount=false;
         hvsById('hvsCreatePassword').value='';hvsAuthNotice('Account created and signed in on this device.');hvsSyncLayoutUiToProfile();hvsSyncFinishUiToProfile();hvsRenderLogin();
-        if(hvsResumeSaveAfterLogin){
-            hvsResumeSaveAfterLogin=false;hvsCloseLogin();
-            setTimeout(()=>window.homeViewSaveFromTop?.(),180);
-        }
-        // Creating an account must not reposition the player either.
+        const resumeSave=hvsResumeSaveAfterLogin;
+        hvsResumeSaveAfterLogin=false;
+        hvsCloseLogin();
+        hvsBeginSavedHomeRestore(name,success=>{
+            if(resumeSave&&success)window.homeViewSaveFromTop?.();
+            else if(resumeSave)hvsShowBudgetToast('RESTORE INCOMPLETE — RETRY BEFORE SAVING');
+        });
+        // A brand-new user retains their chosen guest variants.
     }catch(error){hvsAuthNotice(error.message);}
 }
 async function hvsManageAdminSave(){
@@ -8724,7 +8655,7 @@ hvsById('hvsCreateForm').addEventListener('submit',hvsCreateUser);
 hvsById('hvsCreateToggle').addEventListener('click',()=>{hvsCreatingAccount=true;hvsAuthNotice('');hvsRenderLogin();});
 hvsById('hvsCancelCreate').addEventListener('click',()=>{hvsCreatingAccount=false;hvsAuthNotice('');hvsRenderLogin();});
 hvsById('hvsLogoutButton').addEventListener('click',()=>{
-    ++hvsMaterialRestoreToken;
+    window.HVSDesignRestore?.cancel?.();
     hvsCurrentAccount=null;hvsGuestProfile=hvsEmptyProfile();hvsOverBudget=false;hvsPreviousTotal=null;hvsLastChangedKey=null;
     hvsAuthNotice('Logged out. Log in again to restore your local project.');
     hvsSyncLayoutUiToProfile();hvsSyncFinishUiToProfile();
@@ -8732,7 +8663,11 @@ hvsById('hvsLogoutButton').addEventListener('click',()=>{
     // property commands: Unreal may teleport the player on a layout change.
     hvsRenderLogin();
 });
-hvsById('hvsSaveNowButton').addEventListener('click',()=>{hvsPersistProfile();hvsShowBudgetToast('PROGRESS SAVED ON THIS DEVICE');hvsRestoreToUnreal();});
+hvsById('hvsSaveNowButton').addEventListener('click',()=>{
+    // This older account-menu SAVE button now uses the same guarded flow as
+    // the top SAVE. Never replay property/layout commands while saving.
+    window.homeViewSaveFromTop?.();
+});
 hvsById('hvsManageAdminSelect').addEventListener('change',event=>{
     const value=event.target.value;hvsById('hvsManageAdminUsername').value=value?hvsStore.accounts[value]?.name||'':'';
     hvsById('hvsManageAdminPassword').value='';hvsById('hvsMarieVerifyPassword').value='';
@@ -9090,6 +9025,7 @@ document.getElementById('hvsAfkEnd')?.addEventListener('click',()=>{hvsHideAfk()
 ['pointerdown','pointermove','keydown','wheel','touchstart','mousedown'].forEach(evt=>window.addEventListener(evt,()=>{if(!hvsAfkPromptShowing)hvsResetAfkTimer();},{passive:true}));
 document.addEventListener('visibilitychange',()=>{if(document.hidden){clearTimeout(hvsIdleTimer);hvsIdleTimer=null;}else hvsResetAfkTimer();});
 window.homeViewDisplaySessionState=(intentional,message)=>{
+  window.HVSDesignRestore?.cancel?.();
   window.homeViewConnectionProblem=!intentional;
   hvsHideAfk();clearTimeout(hvsIdleTimer);hvsIdleTimer=null;
   hvsCloseHowTo();
@@ -10997,6 +10933,7 @@ function homeViewDetachStream(){
 }
 window.homeViewEndSession=async(message='Your session has ended.',options={})=>{
   if(homeViewTeardownStarted)return;
+  window.HVSDesignRestore?.cancel?.();
   // All legacy disconnect/error/inactivity paths keep their original save attempt.
   // Only an explicit exit without saving or a just-confirmed SAVE skips a repeat.
   if(!options?.skipOnlineSave){
@@ -12457,5 +12394,6 @@ window.addEventListener('keyup',event=>{
   </script>
 </template>
 
+<script src="hvs-design-restore.js" defer></script>
 <script src="hvs-leads.js" defer></script>
 </body></html>
