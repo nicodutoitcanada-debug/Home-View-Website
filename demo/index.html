@@ -4850,6 +4850,15 @@ body.hvs-audio-ready:not(.hvs-session-ended):not(.hvs-movie-active)
 </style>
 
 
+<style id="hvs-main-save-session-flow-2026-11-03">
+/* Reuses the existing animated glass popup. No mobile breakpoint overrides. */
+#confirmInnerBox{flex-direction:column;gap:9px;padding:11px 9px 12px}
+#hvsSaveDialogMessage{margin:0;color:rgba(255,255,255,.87);font:500 11px/1.45 Arial,sans-serif;max-width:100%;text-align:center;overflow-wrap:anywhere;white-space:normal}
+#confirmButtons{align-items:stretch}
+#confirmButtons .confirmButton{min-height:40px;height:auto;line-height:1.25;white-space:normal;padding:9px 5px;overflow-wrap:break-word}
+#confirmButtons .confirmButton[hidden]{display:none!important}
+#confirmMenuCloseButton:disabled{opacity:.35;pointer-events:none}
+</style>
 <style id="hvs-startup-video-readiness-2026-10-27">
 /* UI is not announced until the VIDEO, not only Unreal, is actually visible. */
 #hvsStartupVideoStatus[hidden] {display:none!important;}
@@ -5082,7 +5091,7 @@ document.addEventListener('DOMContentLoaded',()=>{
 <div class="hvsTutorialLegend">PLAY MOVIE<span aria-hidden="true"></span></div>
 <div class="hvsTutorialLegend">TELEPORT TARGETS<span aria-hidden="true"></span></div></div>
           <div class="hvsTutorialMainReplica" aria-hidden="true">
-            <div class="hvsTutorialEnd">END SESSION</div>
+            <div class="hvsTutorialEnd">SAVE</div>
             <div class="hvsTutorialIcons"><span class="hvsTutorialStaticIcon"><img src="01 CAMERA SETTINGS.png" alt="" draggable="false"></span>
 <span class="hvsTutorialStaticIcon"><img src="01 DOCK MENU.png" alt="" draggable="false"></span>
 <span class="hvsTutorialStaticIcon"><img src="01 TELEPORT MAP.png" alt="" draggable="false"></span>
@@ -5098,7 +5107,7 @@ document.addEventListener('DOMContentLoaded',()=>{
 <div class="hvsTutorialLegend">HOW TO<span aria-hidden="true"></span></div>
 <div class="hvsTutorialLegend">LOGIN<span aria-hidden="true"></span></div></div>
         </div>
-        <div class="hvsTutorialDiagramNotes"><span>END SESSION → Close your session safely</span><span>PERSONALIZE → Change your home finishes</span></div>
+        <div class="hvsTutorialDiagramNotes"><span>SAVE → Save your design, then choose whether to end the session</span><span>PERSONALIZE → Change your home finishes</span></div>
       </div>
     </div>
   </section>
@@ -5131,7 +5140,7 @@ document.addEventListener('DOMContentLoaded',()=>{
             <button id="hvsFullscreenControl" type="button" aria-label="Enter fullscreen" title="Enter fullscreen" hidden>
                 <img src="ENTER FULLSCREEN.png" alt="" draggable="false">
             </button>
-            <button id="endSession" type="button" aria-label="End Session">END SESSION</button>
+            <button id="endSession" type="button" aria-label="Save home">SAVE</button>
         </div>
 
         <div id="redPlate"></div>
@@ -5438,7 +5447,7 @@ document.addEventListener('DOMContentLoaded',()=>{
 <div id="confirmMenuWrapper">
     <div id="confirmOuterBox" class="glassPanel">
         <div id="confirmTopBar">
-            <div id="confirmTitle">ARE YOU SURE YOU WANT TO END THE SESSION</div>
+            <div id="confirmTitle">SAVE YOUR HOME</div>
 
             <button class="topIconButton" id="confirmMenuCloseButton" type="button" aria-label="Cancel end session">
                 <img src="01 DOCK MENU.png" alt="Exit">
@@ -5447,6 +5456,7 @@ document.addEventListener('DOMContentLoaded',()=>{
 
         <div id="confirmInnerBoxWrapper">
             <div id="confirmInnerBox">
+                <p id="hvsSaveDialogMessage" role="status" aria-live="polite">Sign in to save your home, or end without saving.</p>
                 <div id="confirmButtons">
                     <button class="confirmButton" id="confirmYesButton" type="button">YES</button>
                     <button class="confirmButton" id="confirmNoButton" type="button">NO</button>
@@ -5764,6 +5774,7 @@ const buildingMenuCloseButton = document.getElementById('buildingMenuCloseButton
 const teleportMapMenuButton = document.getElementById('teleportMapMenuButton');
 
 const endSessionButton = document.getElementById('endSession');
+let hvsResumeSaveAfterLogin=false;
 const confirmMenuCloseButton = document.getElementById('confirmMenuCloseButton');
 const confirmNoButton = document.getElementById('confirmNoButton');
 const confirmYesButton = document.getElementById('confirmYesButton');
@@ -7576,12 +7587,78 @@ profileMenuCloseButton.addEventListener('click', closeProfileMenu);
 teleportGroundButton.addEventListener('click', () => setTeleportFloor('ground'));
 teleportFirstButton.addEventListener('click', () => setTeleportFloor('first'));
 
-endSessionButton.addEventListener('click', openConfirmMenu);
-confirmMenuCloseButton.addEventListener('click', closeConfirmMenu);
-confirmNoButton.addEventListener('click', closeConfirmMenu);
-
-confirmYesButton.addEventListener('click', () => {
-    window.homeViewEndSession?.('Your session has ended.');
+// HVS_SAVE_SESSION_FLOW: The existing Arcware teardown is ONLY called on explicit End.
+let hvsSaveDialogState='idle',hvsSaveInProgress=false;
+const hvsSaveDialogMessage=document.getElementById('hvsSaveDialogMessage');
+function hvsSetSaveDialog(mode,title,message,positive,negative){
+    hvsSaveDialogState=mode;
+    document.getElementById('confirmTitle').textContent=title;
+    hvsSaveDialogMessage.textContent=message;
+    confirmYesButton.textContent=positive||'';
+    confirmNoButton.textContent=negative||'';
+    const busy=mode==='saving';
+    for(const button of [confirmYesButton,confirmNoButton]){
+        button.hidden=busy;button.disabled=busy;
+    }
+    confirmMenuCloseButton.disabled=busy;
+    document.getElementById('confirmInnerBox').setAttribute('aria-busy',String(busy));
+    if(!body.classList.contains('confirm-mode'))openConfirmMenu();
+}
+async function hvsSaveAndOfferEnd(){
+    if(hvsSaveInProgress||window.homeViewSessionIntentional)return;
+    const snapshot=window.homeViewSavedState?.();
+    if(!snapshot?.currentUser){
+        hvsSetSaveDialog('login-required','SIGN IN TO SAVE',
+            'You must log in or create an account before saving your home. You can also end this session without saving.',
+            'LOG IN / CREATE','END WITHOUT SAVING');
+        return;
+    }
+    hvsSaveInProgress=true;
+    hvsSetSaveDialog('saving','SAVING YOUR HOME',
+        'Saving this design locally and sending the selections and estimate to the builder. Please keep your session open.','','');
+    try{
+        if(!window.homeViewSaveCurrentProfile?.())
+            throw new Error('Local save failed. Please enable browser storage and retry.');
+        const buyerName=document.getElementById('hvsLeadBuyerName');
+        if(buyerName&&!buyerName.value.trim())buyerName.value=snapshot.currentUser;
+        // SAVE is the user's explicit instruction to share their fictional design
+        // with the builder dashboard. Callback/marketing consent stay independent.
+        const share=document.getElementById('hvsLeadSaveOnline');
+        if(share)share.checked=true;
+        if(typeof window.homeViewSubmitBuyerLead!=='function')
+            throw new Error('Online saving is not ready yet. Please retry.');
+        const response=await window.homeViewSubmitBuyerLead('save');
+        if(!response?.ok||response.skipped)
+            throw new Error('Supabase did not confirm saving. Please retry.');
+        hvsSetSaveDialog('saved','HOME SAVED',
+            'Your design and estimated price are saved on this device and in the builder dashboard. Would you like to end the session?',
+            'END SESSION','KEEP EXPLORING');
+    }catch(error){
+        console.warn('[HVS SAVE] Online save unconfirmed:',error);
+        hvsSetSaveDialog('failed','ONLINE SAVE NOT CONFIRMED',
+            (error?.message||'Online saving failed.')+' You may retry, continue exploring, or end without online saving.',
+            'RETRY SAVE','END WITHOUT ONLINE SAVE');
+    }finally{hvsSaveInProgress=false;}
+}
+window.homeViewSaveFromTop=hvsSaveAndOfferEnd;
+endSessionButton.addEventListener('click',hvsSaveAndOfferEnd);
+confirmMenuCloseButton.addEventListener('click',()=>{
+    if(hvsSaveDialogState==='saving')return;
+    closeConfirmMenu();hvsSaveDialogState='idle';
+});
+confirmNoButton.addEventListener('click',()=>{
+    if(hvsSaveDialogState==='login-required'||hvsSaveDialogState==='failed')
+        window.homeViewEndSession?.('Your session has ended.',{skipOnlineSave:true});
+    else{closeConfirmMenu();hvsSaveDialogState='idle';}
+});
+confirmYesButton.addEventListener('click',()=>{
+    if(hvsSaveDialogState==='login-required'){
+        hvsResumeSaveAfterLogin=true;
+        closeConfirmMenu();hvsSaveDialogState='idle';
+        window.homeViewOpenLogin?.();
+    }else if(hvsSaveDialogState==='saved'){
+        window.homeViewEndSession?.('Your session has ended.',{skipOnlineSave:true});
+    }else if(hvsSaveDialogState==='failed')hvsSaveAndOfferEnd();
 });
 
 dockMenuButton.addEventListener('keydown', (event) => {
@@ -7671,7 +7748,7 @@ teleportFirstButton.addEventListener('keydown', (event) => {
 endSessionButton.addEventListener('keydown', (event) => {
     if (event.key === 'Enter' || event.key === ' ') {
         event.preventDefault();
-        openConfirmMenu();
+        hvsSaveAndOfferEnd();
     }
 });
 
@@ -7904,7 +7981,8 @@ function hvsPersist(){
         localStorage.setItem(HVS_STORE_KEY,JSON.stringify(toSave));return true;
     }catch(error){console.warn('[HOME VIEW] Browser storage unavailable:',error);return false;}
 }
-function hvsPersistProfile(){ const profile=hvsCurrentProfile(); profile.updatedAt=new Date().toISOString(); if(hvsCurrentAccount) hvsPersist(); }
+function hvsPersistProfile(){ const profile=hvsCurrentProfile(); profile.updatedAt=new Date().toISOString(); return hvsCurrentAccount ? hvsPersist() : false; }
+window.homeViewSaveCurrentProfile=()=>hvsCurrentAccount ? hvsPersistProfile() : false;
 function hvsToFiniteAmount(n){ const v=Number(n); return (n===null||n===''||!Number.isFinite(v)||v<0)?null:Math.round(v*100)/100; }
 function hvsBedroomUpgradePrice(){return Number(hvsStore.layoutOptions.bedroomUpgradeCost)||0;}
 function hvsSynchronizeLayoutCost(profile){
@@ -8353,6 +8431,11 @@ async function hvsHandleLogin(event){
         }
         hvsLoginError('');
         hvsCurrentAccount={name:account.name,role:account.role};
+        if(hvsResumeSaveAfterLogin){
+            // Buyer had already explored without signing in. Keep the current design.
+            hvsStore.profiles[hvsNormalizeName(account.name)]=JSON.parse(JSON.stringify(hvsGuestProfile));
+            hvsPersist();
+        }
         hvsCurrentProfile();hvsGuestProfile=hvsEmptyProfile();hvsPreviousTotal=null;hvsLastChangedKey=null;hvsOverBudget=false;
         hvsById('hvsLoginPassword').value='';
         // Authentication changes only the frontend account, prices, and UI.
@@ -8366,6 +8449,10 @@ async function hvsHandleLogin(event){
                 ? 'Your admin privileges are now active. You can adjust default settings.'
                 : 'Your saved project is ready.'
         );
+        if(hvsResumeSaveAfterLogin){
+            hvsResumeSaveAfterLogin=false;
+            setTimeout(()=>window.homeViewSaveFromTop?.(),1000);
+        }
     }catch(error){
         const message=error?.message||'Login could not be completed. Please try again.';
         hvsLoginError(message);hvsAuthNotice('');
@@ -8384,6 +8471,10 @@ async function hvsCreateUser(event){
         if(!hvsPersist()){delete hvsStore.accounts[key];delete hvsStore.profiles[key];hvsAuthNotice('Browser storage unavailable. Account was not created.');return;}
         hvsCurrentAccount={name,role:'user'};hvsGuestProfile=hvsEmptyProfile();hvsCreatingAccount=false;
         hvsById('hvsCreatePassword').value='';hvsAuthNotice('Account created and signed in on this device.');hvsSyncLayoutUiToProfile();hvsSyncFinishUiToProfile();hvsRenderLogin();
+        if(hvsResumeSaveAfterLogin){
+            hvsResumeSaveAfterLogin=false;hvsCloseLogin();
+            setTimeout(()=>window.homeViewSaveFromTop?.(),180);
+        }
         // Creating an account must not reposition the player either.
     }catch(error){hvsAuthNotice(error.message);}
 }
@@ -8487,7 +8578,7 @@ function hvsAddPriceItem(){
 hvsById('homeMenuButton').setAttribute('aria-label','Open Cost Estimate');
 hvsById('loginButton').setAttribute('aria-label','Open Login');
 hvsById('costCloseButton').addEventListener('click',hvsCloseCost);
-hvsById('loginCloseButton').addEventListener('click',hvsCloseLogin);
+hvsById('loginCloseButton').addEventListener('click',()=>{hvsResumeSaveAfterLogin=false;hvsCloseLogin();});
 hvsById('costScaleSlider').addEventListener('input',event=>document.documentElement.style.setProperty('--cost-ui-scale',event.target.value));
 // Mirror the right-side slider's orange engaged highlight during dragging.
 const hvsCostScaleBar = hvsById('costScaleControl');
@@ -10831,14 +10922,15 @@ function homeViewDetachStream(){
   }
   try {document.getElementById('video-container')?.replaceChildren();}catch(_){}
 }
-window.homeViewEndSession=async(message='Your session has ended.')=>{
+window.homeViewEndSession=async(message='Your session has ended.',options={})=>{
   if(homeViewTeardownStarted)return;
-  // Queue buyer data before stream shutdown, but NEVER await a network call here.
-  // The buyer must have opted into online saving; phone alerts additionally
-  // require a contact request. No default Unreal configuration is transmitted.
-  try { window.homeViewSubmitBuyerLead?.('end-session')?.catch(error=>
-    console.warn('[HVS LEADS] End Session online save failed:',error)); } catch(error) {
-    console.warn('[HVS LEADS] End Session save could not be queued:',error);
+  // All legacy disconnect/error/inactivity paths keep their original save attempt.
+  // Only an explicit exit without saving or a just-confirmed SAVE skips a repeat.
+  if(!options?.skipOnlineSave){
+    try { window.homeViewSubmitBuyerLead?.('end-session')?.catch(error=>
+      console.warn('[HVS LEADS] End Session online save failed:',error)); } catch(error) {
+      console.warn('[HVS LEADS] End Session save could not be queued:',error);
+    }
   }
   homeViewTeardownStarted=true;
   window.homeViewSessionIntentional=true;
