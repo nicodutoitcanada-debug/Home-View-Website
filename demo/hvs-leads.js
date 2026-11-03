@@ -74,7 +74,8 @@
     const buyer=keyFor(state.currentUser);
     const profile=read(CONTACT_KEY)[buyer]||{};
     if(!profile.saveOnline)return null;
-    if(!profile.name || (!profile.email && !profile.phone))throw new Error('Enter the buyer name and email or phone before saving online.');
+    if(!profile.name)throw new Error('Enter the buyer name before saving online.');
+    if(profile.contactRequested && !profile.email && !profile.phone)throw new Error('Enter your email or phone in the account window to request a callback.');
     const values=state.effectiveCosts||{};
     const total=Number(state.total)||0;
     const base=Number(values['Base Cost'])||0;
