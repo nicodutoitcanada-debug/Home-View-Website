@@ -8230,6 +8230,71 @@ window.homeViewReceiveProjectChange=function(message){
 };
 window.homeViewDebugCostUpdate=(id,amount)=>window.homeViewReceiveProjectChange({CostUpdate:{id,amount}});
 window.homeViewDebugConfigUpdate=(key,value)=>window.homeViewReceiveProjectChange({ConfigUpdate:{key,value}});
+// SAFE_LOGIN_MATERIAL_RESTORE: Local account stores all design settings,
+// but login must never blindly replay {property}, {layout} or restoreUserState.
+// Those navigation/level commands previously teleported the player.
+// Only changed material Level Variant receiver messages are sent to Unreal.
+let hvsMaterialRestoreToken=0;
+function hvsGuestHasCustomDesign(){
+    const p=hvsGuestProfile||{};
+    for(const [key,value] of Object.entries(p.settings||{})){
+        if(key==='UpstairsLayoutOfferSeen'||key==='PropertyOfferSeen')continue;
+        if(key==='PropertyChoice'&&value==='one')continue;
+        if(key==='FirstFloorLayout'&&value==='lounge')continue;
+        if(Object.prototype.hasOwnProperty.call(HVS_DEFAULT_FINISH_SETTINGS,key)){
+            if(String(value)!==String(HVS_DEFAULT_FINISH_SETTINGS[key]))return true;
+            continue;
+        }
+        if(value!==null&&value!==undefined&&value!=='')return true;
+    }
+    return p.budget!==null&&p.budget!==undefined;
+}
+function hvsRestoreSavedMaterialVariants(previousSettings,username){
+    const profile=hvsStore.profiles[hvsNormalizeName(username)];
+    if(!profile||!hvsCurrentAccount)return;
+    const current={...hvsEnsureFinishDefaults(profile).settings};
+    const original={...HVS_DEFAULT_FINISH_SETTINGS,...(previousSettings||{})};
+    const allKeys=[
+        'Kitchen_solid_inset','Kitchen_Top_glass','landscaping',
+        ...['01','02','04','06','07','09','03','05','islandOnly','10','carpet',
+            'wgCup','wgCounter','wgBack','wuCup','wuCounter','wuBack',
+            'wmCup','wmCounter','wmBack','washTile','railing','cladding',
+            'wallColor','wallFeatLiving','wallFeatOffice','wallFeatMainBed']
+            .map(zone=>HVS_KITCHEN_ZONE_KEYS[zone])
+    ];
+    if(current.Kitchen_finish_all!==undefined)allKeys.unshift('Kitchen_finish_all');
+    const commands=[];
+    for(const key of new Set(allKeys)){
+        if(!key||current[key]===undefined)continue;
+        if(current[key]!==original[key])commands.push({[key]:current[key]});
+    }
+    if(!commands.length)return;
+    const token=++hvsMaterialRestoreToken;
+    const loginKey=hvsNormalizeName(username);
+    let attempts=0;
+    function dispatchWhenReady(){
+        if(token!==hvsMaterialRestoreToken||
+           hvsNormalizeName(hvsCurrentAccount?.name)!==loginKey||
+           window.homeViewSessionIntentional)return;
+        // The stream is ready only after its first visible decoded video.
+        // No changes during Unreal's level load or while the video is pending.
+        if(window.homeViewLevelReady!==true||typeof window.homeViewSend!=='function'){
+            if(++attempts<60)setTimeout(dispatchWhenReady,500);
+            else console.warn('[ACCOUNT RESTORE] Stream not ready for material restore.');
+            return;
+        }
+        commands.forEach((command,index)=>setTimeout(()=>{
+            if(token===hvsMaterialRestoreToken&&
+               hvsNormalizeName(hvsCurrentAccount?.name)===loginKey&&
+               !window.homeViewSessionIntentional)
+                window.homeViewSend?.(command);
+        },index*140));
+        console.info('[ACCOUNT RESTORE] Restoring',commands.length,
+            'saved material selections without property/layout navigation.');
+    }
+    setTimeout(dispatchWhenReady,900);
+}
+
 function hvsRestoreToUnreal(){
     if(!hvsCurrentAccount||typeof window.homeViewSend!=='function')return;
     const profile=hvsCurrentProfile();
@@ -8430,19 +8495,26 @@ async function hvsHandleLogin(event){
             return;
         }
         hvsLoginError('');
+        const previousGuestSettings={...hvsGuestProfile.settings};
+        const hadSavedDesign=Boolean(hvsStore.profiles[hvsNormalizeName(account.name)]);
+        const keepCurrentGuestDesign=hvsResumeSaveAfterLogin &&
+            (hvsGuestHasCustomDesign()||!hadSavedDesign);
         hvsCurrentAccount={name:account.name,role:account.role};
-        if(hvsResumeSaveAfterLogin){
-            // Buyer had already explored without signing in. Keep the current design.
+        if(keepCurrentGuestDesign){
+            // The user intentionally saved their current guest design.
+            // Do not accidentally reload a different set of variants.
             hvsStore.profiles[hvsNormalizeName(account.name)]=JSON.parse(JSON.stringify(hvsGuestProfile));
             hvsPersist();
         }
         hvsCurrentProfile();hvsGuestProfile=hvsEmptyProfile();hvsPreviousTotal=null;hvsLastChangedKey=null;hvsOverBudget=false;
         hvsById('hvsLoginPassword').value='';
-        // Authentication changes only the frontend account, prices, and UI.
-        // Do not replay saved layout/property/restoreUserState commands here:
-        // Unreal can treat those as navigation and teleport the player.
-        // The explicit SAVE PROGRESS action retains the existing replay.
+        // The calculator, budget and UI use the authenticated profile.
+        // Material variants may be restored after video is confirmed ready;
+        // never automatically send property/layout commands on login.
+        ++hvsMaterialRestoreToken;
         hvsSyncLayoutUiToProfile();hvsSyncFinishUiToProfile();
+        if(hadSavedDesign&&!keepCurrentGuestDesign)
+            hvsRestoreSavedMaterialVariants(previousGuestSettings,account.name);
         hvsCloseLoginAfterSuccess(
             `Welcome back ${hvsCurrentAccount.name}`,
             hvsIsAdmin()
@@ -8652,6 +8724,7 @@ hvsById('hvsCreateForm').addEventListener('submit',hvsCreateUser);
 hvsById('hvsCreateToggle').addEventListener('click',()=>{hvsCreatingAccount=true;hvsAuthNotice('');hvsRenderLogin();});
 hvsById('hvsCancelCreate').addEventListener('click',()=>{hvsCreatingAccount=false;hvsAuthNotice('');hvsRenderLogin();});
 hvsById('hvsLogoutButton').addEventListener('click',()=>{
+    ++hvsMaterialRestoreToken;
     hvsCurrentAccount=null;hvsGuestProfile=hvsEmptyProfile();hvsOverBudget=false;hvsPreviousTotal=null;hvsLastChangedKey=null;
     hvsAuthNotice('Logged out. Log in again to restore your local project.');
     hvsSyncLayoutUiToProfile();hvsSyncFinishUiToProfile();
