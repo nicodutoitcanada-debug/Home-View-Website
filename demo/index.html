@@ -5503,21 +5503,21 @@ document.addEventListener('DOMContentLoaded',()=>{
  <div class="hvsGlass"><div class="hvsPanelTop hvsLoginHeader"><img id="hvsLoginHeaderIcon" src="01 LOGIN.png" alt="" draggable="false"><span class="hvsTitle" id="loginPanelTitle">HOME VIEW ACCOUNT</span><button type="button" class="hvsIconClose" id="loginCloseButton" aria-label="Dock login window" title="Close login"><img src="01 DOCK MENU.png" alt="" draggable="false"></button></div>
  <div class="hvsAccountBody">
    <div id="hvsSignedOut">
-     <div class="hvsTabs"><button type="button" data-auth-tab="user" class="active">USER LOGIN</button><button type="button" data-auth-tab="admin">ADMIN LOGIN</button></div>
-     <form id="hvsLoginForm"><label class="hvsField" for="hvsLoginUsername">USERNAME</label><input id="hvsLoginUsername" class="hvsTextInput" autocomplete="username" required maxlength="48"><label class="hvsField" for="hvsLoginPassword">PASSWORD</label><input id="hvsLoginPassword" class="hvsTextInput" type="password" autocomplete="current-password" required><div class="hvsFormActions"><button class="hvsActionButton primary" type="submit">LOG IN</button><button class="hvsActionButton" id="hvsCreateToggle" type="button">CREATE ACCOUNT</button></div><div id="hvsLoginInlineError" role="alert" hidden></div></form>
-     <form id="hvsCreateForm" hidden><div class="hvsSecondaryHeading">CREATE A USER ACCOUNT</div><label class="hvsField" for="hvsCreateUsername">USERNAME</label><input id="hvsCreateUsername" class="hvsTextInput" autocomplete="username" maxlength="48" required><label class="hvsField" for="hvsCreatePassword">PASSWORD (MIN 8 CHARACTERS)</label><input id="hvsCreatePassword" class="hvsTextInput" type="password" autocomplete="new-password" minlength="8" required><div class="hvsFormActions"><button type="submit" class="hvsActionButton primary">CREATE USER</button><button type="button" class="hvsActionButton" id="hvsCancelCreate">BACK</button></div></form>
+     <div class="hvsTabs"><button type="button" data-auth-tab="user" class="active">BUYER LOGIN</button><button type="button" data-auth-tab="admin">ADMIN LOGIN</button></div>
+     <form id="hvsLoginForm"><label class="hvsField" id="hvsLoginIdentifierLabel" for="hvsLoginUsername">EMAIL ADDRESS</label><input id="hvsLoginUsername" class="hvsTextInput" type="email" inputmode="email" autocomplete="email" required maxlength="180"><label class="hvsField" for="hvsLoginPassword">PASSWORD</label><input id="hvsLoginPassword" class="hvsTextInput" type="password" autocomplete="current-password" required><div class="hvsFormActions"><button class="hvsActionButton primary" type="submit">LOG IN</button><button class="hvsActionButton" id="hvsCreateToggle" type="button">CREATE ACCOUNT</button></div><div id="hvsLoginInlineError" role="alert" hidden></div></form>
+     <form id="hvsCreateForm" hidden><div class="hvsSecondaryHeading">CREATE A USER ACCOUNT</div><label class="hvsField" for="hvsCreateUsername">YOUR NAME</label><input id="hvsCreateUsername" class="hvsTextInput" autocomplete="name" maxlength="48" required><label class="hvsField" for="hvsCreateEmail">EMAIL ADDRESS</label><input id="hvsCreateEmail" class="hvsTextInput" type="email" inputmode="email" autocomplete="email" maxlength="180" required><label class="hvsField" for="hvsCreatePassword">PASSWORD (MIN 8 CHARACTERS)</label><input id="hvsCreatePassword" class="hvsTextInput" type="password" autocomplete="new-password" minlength="8" required><div class="hvsFormActions"><button type="submit" class="hvsActionButton primary">CREATE USER</button><button type="button" class="hvsActionButton" id="hvsCancelCreate">BACK</button></div></form>
    </div>
    <div id="hvsSignedIn" hidden><p class="hvsAccountSummary" id="hvsWelcomeText"></p><div class="hvsFormActions"><button type="button" class="hvsActionButton" id="hvsLogoutButton">LOG OUT</button><button type="button" class="hvsActionButton primary" id="hvsSaveNowButton">SAVE HOME</button></div><section id="hvsLiveLeadCapture" aria-label="Save your home online">
     <div class="hvsSecondaryHeading">SAVE YOUR HOME &amp; CONTACT THE BUILDER</div>
-    <p class="hvsSettingInfo">Demonstration only. Use fictional buyer information. Save a design online independently of requesting a callback.</p>
+    <p class="hvsSettingInfo">Save your home to your secure account. Requesting a callback and marketing updates is optional.</p>
     <label class="hvsField" for="hvsLeadBuyerName">BUYER NAME</label><input class="hvsTextInput" id="hvsLeadBuyerName" maxlength="100" autocomplete="name" placeholder="Your name">
     <label class="hvsField" for="hvsLeadBuyerEmail">EMAIL</label><input class="hvsTextInput" id="hvsLeadBuyerEmail" type="email" autocomplete="email" placeholder="buyer@example.com">
     <label class="hvsField" for="hvsLeadBuyerPhone">PHONE (OPTIONAL)</label><input class="hvsTextInput" id="hvsLeadBuyerPhone" type="tel" autocomplete="tel" placeholder="Phone number">
     <label class="hvsLeadCheck"><input id="hvsLeadSaveOnline" type="checkbox"> Save this home to the online builder system</label>
     <label class="hvsLeadCheck"><input id="hvsLeadContactRequested" type="checkbox"> Please ask the builder to contact me</label>
     <label class="hvsLeadCheck"><input id="hvsLeadMarketingConsent" type="checkbox"> I agree to receive ongoing marketing (optional)</label>
-    <div class="hvsFormActions"><button type="button" class="hvsActionButton primary" id="hvsLeadShareNow">SAVE &amp; SHARE ONLINE</button><button type="button" class="hvsActionButton" id="hvsLeadConfigure">CONFIGURE LIVE LEADS</button></div>
-    <p id="hvsLeadStatus" class="hvsSettingInfo" role="status" aria-live="polite">Live saving is optional. Contact details are stored locally until submitted.</p>
+    <div class="hvsFormActions"><button type="button" class="hvsActionButton primary" id="hvsLeadShareNow">SAVE &amp; SHARE ONLINE</button><button type="button" class="hvsActionButton" id="hvsLeadConfigure" hidden style="display:none">CONFIGURE LIVE LEADS</button></div>
+    <p id="hvsLeadStatus" class="hvsSettingInfo" role="status" aria-live="polite">Saving online requires only your buyer login. No additional code is needed.</p>
    </section>
    <div id="hvsMarieTools" hidden>
       <div class="hvsMarieDemoTools" aria-label="Marie demo settings">
@@ -7966,7 +7966,24 @@ function hvsEnsureFinishDefaults(profile){
     if(!['one','two'].includes(settings.PropertyChoice))settings.PropertyChoice='one';
     return profile;
 }
-const hvsCurrentProfile=()=>hvsEnsureFinishDefaults(hvsCurrentAccount ? (hvsStore.profiles[hvsNormalizeName(hvsCurrentAccount.name)] ??= hvsEmptyProfile()) : hvsGuestProfile);
+const hvsAccountProfileKey=account=>account?.cloudId?'buyer:'+account.cloudId:hvsNormalizeName(account?.name);
+const hvsCurrentProfile=()=>hvsEnsureFinishDefaults(hvsCurrentAccount ? (hvsStore.profiles[hvsAccountProfileKey(hvsCurrentAccount)] ??= hvsEmptyProfile()) : hvsGuestProfile);
+window.homeViewCloudBuyerId=()=>{
+    const user=hvsCurrentAccount;
+    return user?.role==='user'&&user.cloudId&&window.HVSBuyerAuth?.user?.()?.id===user.cloudId?user.cloudId:null;
+};
+function hvsGuestHasCustomDesign(){
+    const p=hvsGuestProfile||{};
+    for(const [key,value] of Object.entries(p.settings||{})){
+        if(/Seen|Offer/i.test(key))continue;
+        if(key==='PropertyChoice'&&value==='one')continue;
+        if(key==='FirstFloorLayout'&&value==='lounge')continue;
+        if(Object.prototype.hasOwnProperty.call(HVS_DEFAULT_FINISH_SETTINGS,key)){
+            if(String(value)!==String(HVS_DEFAULT_FINISH_SETTINGS[key]))return true;
+        } else if(value!==null&&value!==undefined&&value!=='')return true;
+    }
+    return p.budget!==null&&p.budget!==undefined||Object.keys(p.costOverrides||{}).length>0;
+}
 // Marie's demo-preview edits remain in memory even while local user profiles save.
 // Keep the pre-preview price catalogs in the persisted browser store.
 let hvsDemoPriceBaseline = null;
@@ -8318,6 +8335,7 @@ function hvsCloseLoginAfterSuccess(title,description){
 }
 function hvsOpenLogin(){
     hvsCloseCost();clearModes();document.body.classList.add('login-mode');
+    if(hvsResumeSaveAfterLogin)hvsLoginTab='user';
     hvsCreatingAccount=false;hvsDismissAdminSwitch();hvsLoginError('');hvsRenderLogin();
     if(!hvsCurrentAccount)setTimeout(()=>hvsById('hvsLoginUsername').focus(),130);
 }
@@ -8376,9 +8394,16 @@ function hvsRenderLogin(){
     hvsById('hvsCreateForm').hidden=!hvsCreatingAccount;
     for(const tab of document.querySelectorAll('[data-auth-tab]'))tab.classList.toggle('active',tab.dataset.authTab===hvsLoginTab);
     hvsById('hvsCreateToggle').hidden=hvsLoginTab==='admin';
+    hvsById('hvsLoginIdentifierLabel').textContent=hvsLoginTab==='admin'?'USERNAME':'EMAIL ADDRESS';
+    const idInput=hvsById('hvsLoginUsername');
+    idInput.type=hvsLoginTab==='admin'?'text':'email';
+    idInput.inputMode=hvsLoginTab==='admin'?'text':'email';
+    idInput.autocomplete=hvsLoginTab==='admin'?'username':'email';
+    idInput.maxLength=hvsLoginTab==='admin'?48:180;
+    idInput.placeholder=hvsLoginTab==='admin'?'Admin username':'you@example.com';
     hvsById('hvsMarieTools').hidden=!hvsIsMarie();
     hvsUpdateAdminBadge();
-    if(hvsCurrentAccount){hvsById('hvsWelcomeText').replaceChildren();hvsById('hvsWelcomeText').textContent=`SIGNED IN: ${hvsCurrentAccount.name} — ${hvsCurrentAccount.role==='owner'?'OWNER / MASTER ADMIN':hvsCurrentAccount.role==='admin'?'ADMIN':'USER'}. Your project is saved locally on this device.`;}
+    if(hvsCurrentAccount){hvsById('hvsWelcomeText').replaceChildren();hvsById('hvsWelcomeText').textContent=`SIGNED IN: ${hvsCurrentAccount.name} — ${hvsCurrentAccount.role==='owner'?'OWNER / MASTER ADMIN':hvsCurrentAccount.role==='admin'?'ADMIN':'USER'}. Your home can be saved to your online account.`;}
     if(hvsIsMarie()){hvsRenderAdminList();window.homeViewSyncMarieDemoFields?.();}
     hvsRenderCost();
 }
@@ -8405,9 +8430,52 @@ async function hvsVerify(account,password){
     const hash=await hvsPasswordHash(password,account.salt,account.iterations);
     return hash===account.hash;
 }
+// Buyer email/password credentials are validated by Supabase Auth.
+// Local browser-only administrator accounts stay separate.
+async function hvsCompleteCloudLogin(user){
+    if(!user?.id||!user?.email)throw Error('Buyer account details were not returned.');
+    // Do not silently overwrite a local design when the cloud is unavailable.
+    const latest=await window.HVSBuyerAuth.getSavedDesign();
+    const name=String(user.user_metadata?.display_name||user.email.split('@')[0]||'Buyer').slice(0,48);
+    const key='buyer:'+user.id;
+    const guestChanged=hvsResumeSaveAfterLogin&&hvsGuestHasCustomDesign();
+    const cloudProfile=latest?.saved_configuration?.profile;
+    let profile;
+    if(guestChanged)profile=JSON.parse(JSON.stringify(hvsGuestProfile));
+    else if(cloudProfile&&typeof cloudProfile==='object'&&!Array.isArray(cloudProfile)){
+        profile=JSON.parse(JSON.stringify(cloudProfile));
+        if(!profile.settings||typeof profile.settings!=='object')profile.settings={};
+        if(!profile.costOverrides||typeof profile.costOverrides!=='object')profile.costOverrides={};
+        if(!('budget' in profile))profile.budget=null;
+    }else if(hvsStore.profiles[key])profile=hvsStore.profiles[key];
+    else profile=JSON.parse(JSON.stringify(hvsGuestProfile));
+    hvsStore.profiles[key]=profile;
+    if(!hvsPersist())throw Error('Browser storage is unavailable; please allow website storage.');
+    hvsCurrentAccount={name,role:'user',cloudId:user.id,email:user.email};
+    hvsGuestProfile=hvsEmptyProfile();
+    hvsPreviousTotal=null;hvsLastChangedKey=null;hvsOverBudget=false;
+    hvsById('hvsLoginPassword').value='';
+    hvsSyncLayoutUiToProfile();hvsSyncFinishUiToProfile();hvsRenderLogin();
+    const resume=hvsResumeSaveAfterLogin;
+    hvsResumeSaveAfterLogin=false;
+    hvsCloseLoginAfterSuccess('Welcome back '+name,'Your personalized home is being restored.');
+    hvsBeginSavedHomeRestore(name,complete=>{
+        if(resume&&complete)window.homeViewSaveFromTop?.();
+        else if(resume)hvsShowBudgetToast('RESTORE INCOMPLETE — RETRY BEFORE SAVING');
+    });
+}
+
 async function hvsHandleLogin(event){
     event.preventDefault();
     const name=hvsById('hvsLoginUsername').value.trim(),pass=hvsById('hvsLoginPassword').value;
+    if(hvsLoginTab==='user'){
+        try{
+            if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(name))throw Error('Enter your email address.');
+            const user=await window.HVSBuyerAuth.signIn(name,pass);
+            await hvsCompleteCloudLogin(user);
+        }catch(error){hvsLoginError(error?.message||'Buyer login failed.');}
+        return;
+    }
     const account=hvsStore.accounts[hvsNormalizeName(name)];
     try{
         const passwordCorrect=account&&await hvsVerify(account,pass);
@@ -8459,27 +8527,23 @@ async function hvsHandleLogin(event){
     }
 }
 async function hvsCreateUser(event){
-    event.preventDefault(); const name=hvsById('hvsCreateUsername').value.trim(),password=hvsById('hvsCreatePassword').value;
-    if(!hvsValidateName(name)){hvsAuthNotice('Use 2–48 letters, numbers, spaces, dots, underscores or hyphens.');return;}
+    event.preventDefault();
+    const name=hvsById('hvsCreateUsername').value.trim();
+    const email=hvsById('hvsCreateEmail').value.trim();
+    const password=hvsById('hvsCreatePassword').value;
+    if(!hvsValidateName(name)){hvsAuthNotice('Enter your name (2–48 characters).');return;}
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){hvsAuthNotice('Enter a valid email address.');return;}
     if(password.length<8){hvsAuthNotice('Choose a password of at least 8 characters.');return;}
-    const key=hvsNormalizeName(name);
-    if(hvsOwn(hvsStore.accounts,key)){hvsAuthNotice('That username is already taken.');return;}
     try{
-        hvsStore.accounts[key]=await hvsMakeAccount(name,password);
-        // Preserve selections made before signup, on this same tab.
-        hvsStore.profiles[key]=JSON.parse(JSON.stringify(hvsGuestProfile));
-        if(!hvsPersist()){delete hvsStore.accounts[key];delete hvsStore.profiles[key];hvsAuthNotice('Browser storage unavailable. Account was not created.');return;}
-        hvsCurrentAccount={name,role:'user'};hvsGuestProfile=hvsEmptyProfile();hvsCreatingAccount=false;
-        hvsById('hvsCreatePassword').value='';hvsAuthNotice('Account created and signed in on this device.');hvsSyncLayoutUiToProfile();hvsSyncFinishUiToProfile();hvsRenderLogin();
-        const resumeSave=hvsResumeSaveAfterLogin;
-        hvsResumeSaveAfterLogin=false;
-        hvsCloseLogin();
-        hvsBeginSavedHomeRestore(name,success=>{
-            if(resumeSave&&success)window.homeViewSaveFromTop?.();
-            else if(resumeSave)hvsShowBudgetToast('RESTORE INCOMPLETE — RETRY BEFORE SAVING');
-        });
-        // A brand-new user retains their chosen guest variants.
-    }catch(error){hvsAuthNotice(error.message);}
+        hvsAuthNotice('Creating your buyer account…');
+        const result=await window.HVSBuyerAuth.signUp(email,password,name);
+        hvsById('hvsCreatePassword').value='';
+        if(!result.confirmed){
+            hvsAuthNotice('Check your email for a confirmation link. After confirming, return here and select BUYER LOGIN. Your current selections remain in this session.');
+            return;
+        }
+        await hvsCompleteCloudLogin(result.user);
+    }catch(error){hvsAuthNotice(error?.message||'Could not create your buyer account.');}
 }
 async function hvsManageAdminSave(){
     if(!hvsIsMarie())return;
@@ -8656,6 +8720,7 @@ hvsById('hvsCreateToggle').addEventListener('click',()=>{hvsCreatingAccount=true
 hvsById('hvsCancelCreate').addEventListener('click',()=>{hvsCreatingAccount=false;hvsAuthNotice('');hvsRenderLogin();});
 hvsById('hvsLogoutButton').addEventListener('click',()=>{
     window.HVSDesignRestore?.cancel?.();
+    if(hvsCurrentAccount?.cloudId)window.HVSBuyerAuth?.logOut?.().catch(error=>console.warn('[HVS AUTH] Logout error',error));
     hvsCurrentAccount=null;hvsGuestProfile=hvsEmptyProfile();hvsOverBudget=false;hvsPreviousTotal=null;hvsLastChangedKey=null;
     hvsAuthNotice('Logged out. Log in again to restore your local project.');
     hvsSyncLayoutUiToProfile();hvsSyncFinishUiToProfile();
@@ -8683,7 +8748,7 @@ document.addEventListener('homeview:menus-reset',event=>{
     hvsCloseLogin();
 });
 window.homeViewOpenCost=hvsOpenCost;window.homeViewOpenLogin=hvsOpenLogin;
-window.homeViewSavedState=()=>({currentUser:hvsCurrentAccount?.name||null,profile:JSON.parse(JSON.stringify(hvsCurrentProfile())),effectiveCosts:hvsPrices(),total:hvsTotal(hvsPrices())});
+window.homeViewSavedState=()=>({currentUser:hvsCurrentAccount?.name||null,cloudBuyerId:window.homeViewCloudBuyerId?.()||null,profile:JSON.parse(JSON.stringify(hvsCurrentProfile())),effectiveCosts:hvsPrices(),total:hvsTotal(hvsPrices())});
 hvsPersist();hvsSyncFinishUiToProfile();hvsRenderCost();
 updateUpstairsLayoutButtons();
 
@@ -12394,6 +12459,8 @@ window.addEventListener('keyup',event=>{
   </script>
 </template>
 
+<script src="dashboard-config.js" defer></script>
+<script src="hvs-buyer-auth.js" defer></script>
 <script src="hvs-design-restore.js" defer></script>
 <script src="hvs-leads.js" defer></script>
 </body></html>
