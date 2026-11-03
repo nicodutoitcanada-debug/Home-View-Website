@@ -10,7 +10,7 @@
      throw Error('The public Home View account configuration is missing.');
    return c;
  };
- let session=null;
+ let session=null,latestLeadId=null;
  try{session=JSON.parse(localStorage.getItem(STORAGE)||'null')}catch(_){}
  const save=(s)=>{
    session=s;
@@ -33,6 +33,7 @@
  }
  function remember(data){
    if(!data?.access_token||!data?.refresh_token||!data?.user?.id)throw Error('Account session was not returned.');
+   if(session?.user?.id && session.user.id!==data.user.id)latestLeadId=null;
    const expires=Date.now()+Math.max(60,Number(data.expires_in||3600))*1000;
    save({access_token:data.access_token,refresh_token:data.refresh_token,expires,user:data.user});
    return data.user;
@@ -88,6 +89,7 @@
      method:'GET',headers:{...publicHeaders(),Authorization:'Bearer '+jwt}
    });
    if(!Array.isArray(result))throw Error('Saved buyer profile could not be loaded.');
+   latestLeadId=result[0]?.id||null;
    return result.length ? result[0] : null;
  }
  async function logOut(){
@@ -95,6 +97,7 @@
    // A slow signout must never erase another account's newer login.
    const old=session;
    save(null);
+   latestLeadId=null;
    if(!old?.access_token)return;
    try{
      await call('/auth/v1/logout',{method:'POST',
@@ -104,6 +107,8 @@
  window.HVSBuyerAuth=Object.freeze({
    signIn,signUp,getUser,getSavedDesign,token,logOut,
    user:()=>session?.user||null,
-   hasSession:()=>!!session?.access_token
+   hasSession:()=>!!session?.access_token,
+   latestLeadId:()=>latestLeadId,
+   setSavedLeadId:id=>{if(typeof id==='string'&&/^[a-f0-9-]{36}$/i.test(id))latestLeadId=id;}
  });
 })();
