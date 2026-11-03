@@ -66,7 +66,7 @@
   function sessionId(buyer){
     const key='hvs-lead-id-'+buyer;
     let id=sessionStorage.getItem(key);
-    if(!id){id=uuid();sessionStorage.setItem(key,id);}
+    if(!id){id=window.HVSBuyerAuth?.latestLeadId?.()||uuid();sessionStorage.setItem(key,id);}
     return id;
   }
   function buildPayload(source){
@@ -128,6 +128,7 @@
       },12000);
       const reply=await res.json().catch(()=>({}));
       if(!res.ok || !reply.ok)throw new Error(reply.error||'Unable to save online.');
+      window.HVSBuyerAuth?.setSavedLeadId?.(reply.id||payload.id);
       // The existing lead receiver confirms database persistence first.
       // Branded PWA notification delivery is separate: a push failure never loses the lead.
       let phoneNote='No registered phone alerts yet.';
