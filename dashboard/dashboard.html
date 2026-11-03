@@ -58,6 +58,49 @@
 .hvs-push-actions{display:flex;gap:8px;flex-wrap:wrap}
 .hvs-push-actions button:disabled{opacity:.35;cursor:not-allowed}
 #hvsPushStatus{font-size:11px;color:#e7a58c;margin-top:6px}
+
+/* HVS MOBILE APP SAFE AREA AND INITIAL FIT — 2026-11-03 */
+/* The installed iPhone app uses viewport-fit=cover and black-translucent.
+   Keep the top of the page below Dynamic Island/status bar without changing
+   what can scroll underneath it. This is CSS-only; desktop is unchanged. */
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+@media (max-width:780px){
+  html,body{max-width:100%;overflow-x:clip}
+  .app,.main{width:100%;min-width:0}
+  .main{
+    padding-top:calc(18px + env(safe-area-inset-top,0px));
+    padding-bottom:calc(38px + env(safe-area-inset-bottom,0px));
+  }
+  .mobile-brand{min-width:0;max-width:100%;margin-bottom:15px}
+  .mobile-brand-logo{flex-shrink:1;width:auto;max-width:min(153px,46vw)}
+  .topline,.top-actions,.hero,.hvs-push-panel,.workspace,.lower-grid{min-width:0;max-width:100%}
+  .top-actions{justify-content:flex-start}
+  .hvs-push-copy{min-width:min(210px,100%)}
+  .modal-backdrop{
+    padding-top:max(16px,env(safe-area-inset-top,0px));
+    padding-bottom:max(16px,env(safe-area-inset-bottom,0px));
+  }
+}
+@media (max-width:780px) and (display-mode:standalone){
+  /* iOS can report a zero safe-area inset for existing Home Screen apps.
+     A 72px minimum keeps the logo below the camera/status bar in both cases. */
+  .main{padding-top:max(72px,calc(env(safe-area-inset-top,0px) + 13px))}
+}
+@media (max-width:540px){
+  /* Actual responsive sizing instead of an artificial browser zoom. */
+  .main{padding-left:12px;padding-right:12px}
+  .mobile-brand{gap:9px;margin-bottom:13px;font-size:10px}
+  .mobile-brand-logo{height:35px;max-width:min(138px,44vw)}
+  .topline{margin-bottom:14px}
+  .top-actions{margin-top:10px;gap:6px}
+  .connection{padding:7px 10px}
+  .top-actions .btn-small{padding:8px 10px;font-size:11px}
+  .top-actions .iconbtn{height:34px;width:34px;flex:none}
+  .hero{padding:20px 17px;min-height:169px;border-radius:19px}
+  .headline{font-size:clamp(27px,7.6vw,33px);margin:10px 0 11px}
+  .hero p{font-size:12px;line-height:1.5}
+  .hvs-push-panel{padding:12px;gap:10px}
+}
 </style>
 </head>
 <body>
