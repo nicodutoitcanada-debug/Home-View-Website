@@ -69,3 +69,128 @@ Neither Telegram tokens nor private signing keys are in public GitHub files.
 This is still a **fictional-buyer demonstration**, not production-grade intake.
 Web Push does not have per-message fees, but service usage is subject to
 GitHub Pages and Supabase free-tier limits.
+
+## Save-first session control — November 3, 2026
+
+The original **END SESSION** button at the top of the game is now **SAVE**.
+This uses the existing animated confirmation popup and keeps the original
+Arcware session termination and error-reconnect logic.
+
+- **Signed in:** SAVE persists the current design locally and submits it to
+  Supabase; only after the response confirms online saving does the popup offer
+  **END SESSION** or **KEEP EXPLORING**.
+- **Not signed in:** SAVE asks the player to **LOG IN / CREATE** or **END WITHOUT
+  SAVING**. The existing login/registration flows are retained. Guest selections
+  are carried into the account when logging in via Save, and Save resumes after
+  accepted login or account creation.
+- **Online error or missing device code:** The popup says **ONLINE SAVE NOT
+  CONFIRMED**, shows the error, and offers **RETRY SAVE** or **END WITHOUT ONLINE
+  SAVE**; its close button returns to the running game.
+- SAVE explicitly opts into the fictional-design submission. Ordinary saves do
+  not require contact details, but a checked callback request requires email or
+  phone. The marketing-consent choice is untouched.
+- Existing End Session shutdown still sets `homeViewSessionIntentional`, disables
+  SDK reconnect methods, sends `{end:'session'}`, and detaches the stream. The
+  explicit new popup End choice skips a *second* online save if already confirmed
+  (or deliberately declined) and resets the buyer's per-session lead ID. All
+  pre-existing inactivity, startup-failure, and unexpected-disconnect paths
+  retain their behavior.
+- Network waits are bounded (12 seconds for saving, 6.5 seconds for optional
+  phone push), so a stalled connection cannot keep the save popup busy forever.
+- **Not verified in paid Arcware streaming yet.** JavaScript syntax was checked;
+  perform the full save → dashboard → push → End Session walkthrough before
+  presenting it to a builder.
+
+
+## Buyer design restoration: separate file and branded loading cover (Nov 3, 2026)
+
+The **restoration logic** now lives in `hvs-design-restore.js`, alongside
+`index.html`. Keep both files next to each other in the local VS Code
+frontend folder. The page includes a single
+`<script src="hvs-design-restore.js" defer></script>` reference.
+
+**Buyer data is not in index.html and not in the JS file.**
+Existing buyer accounts and complete design profiles (finish values, property
+choice, first-floor layout, cost overrides and budget) are saved in the browser
+`localStorage` under `homeview_demo_accounts_cost_v1`. A confirmed online
+SAVE also records the design snapshot and prices in Supabase. Replacing
+`index.html` or `hvs-design-restore.js` does not erase browser storage for the
+same domain and browser. However, `localhost`, the GitHub `github.io`
+address, and `www.homeviewsolutions.com` each have **different** browser
+storage. Do not expect prototype logins to transfer between those addresses.
+Do not clear local browser data when testing a returning buyer.
+
+**On successful login or account creation:**
+
+1. The login closes as the existing session displays a new full-screen cover
+   with the existing `LOADING_BG.mp4` and `loading intro.json`.
+2. The frontend calculator and budget read the saved local buyer profile.
+3. The saved Property One/Two choice, lounge/bedroom layout, and all known
+   Level Variant finish keys are replayed to Unreal's existing UIInteraction
+   receivers, **without** calling Arcware connect or reconnect. Commands wait
+   for the first confirmed-ready streaming session.
+4. The cover remains for **at least three seconds**, or longer while variant
+   commands are sent. The MP4 fades first, followed by Lottie/text/cover.
+   If Unreal rejects a send, the cover offers RETRY RESTORE and CONTINUE,
+   rather than silently claiming the restore succeeded.
+5. When a buyer started the flow with SAVE, the existing online-save confirmation
+   is offered after the restoration completes.
+
+**Unreal contract:** The game must continue accepting the existing
+`{property:'one'|'two'}`, `{layout:'lounge'|'bedroom'}`, and
+`{[finishKey]: finishValue}` messages. This frontend can confirm messages
+entered the streaming transport, **not** that Unreal Level Variant Manager
+finished executing them. Test in Unreal before any paid client presentation.
+Do not introduce a new automatic Arcware session or change the 30 FPS cap.
+
+**Cloud restore limitation:** The Supabase dashboard *stores* online buyer
+configurations but the game's buyer accounts are still browser-local.
+There is no secure cross-device buyer-authenticated readback flow yet. It
+requires a separate authenticated API and server-side identity mapping
+before real customers can resume on another device.
+
+**When replacing index.html:** retain the one-line script inclusion and
+the `hvsBeginSavedHomeRestore(...)` login bridge; otherwise the standalone JS
+cannot be invoked. Keeping the persistence *data* in browser storage still
+protects it from GitHub file replacements.
+
+## Buyer authentication — November 3, 2026 (supersedes all demo-code instructions above)
+
+**No shared browser access code.** Users select **BUYER LOGIN** and sign in with
+their email address and password. New users enter a name, email and password
+and confirm their email if Supabase requests it. The existing **ADMIN LOGIN**
+tab remains a separate, local-only demonstration interface; admin credentials
+do **not** substitute for buyer credentials when sending online saves.
+
+- `hvs-buyer-auth.js` is the standalone frontend Supabase Auth REST client.
+  `dashboard-config.js` contains ONLY the public project URL and publishable key.
+  Do not put secret keys in GitHub or ask buyers for technical codes.
+- `hvs-leads.js` submits confirmed saves using the buyer's Bearer token.
+- Edge Function `hvs-submit-lead` validates the token with
+  `supabase.auth.getUser(jwt)`; it writes `buyer_user_id` and prevents
+  overwriting another buyer's lead. The `hvs-push-deliver` function checks
+  token ownership of the saved lead before sending a branded push.
+- RLS `hvs_buyer_self_read` limits buyer cloud retrieval to their own
+  `buyer_user_id`. The existing builder dashboard owner policy remains.
+- On sign-in, the game reads the latest saved profile from Supabase and
+  restores it through `hvs-design-restore.js`. The local browser cache
+  remains a convenience only. A customized unsaved guest session takes
+  precedence when the buyer selected SAVE and then signed in.
+- Original browser-only usernames/passwords have **not** been migrated into
+  Supabase Auth; buyers must register a standard email account once.
+- For email confirmations and password reset links, set **Authentication →
+  URL Configuration → Site URL** in the HVS Supabase project to
+  `https://www.homeviewsolutions.com/`; add this URL to allowed redirect
+  URLs as necessary. This is a one-time HVS project setting, not a buyer
+  requirement. This app currently does not trigger Arcware while visiting
+  the main website.
+- The HVS Supabase project is `jythgvjtulxivwmlicvi`, **not** the separate
+  Sales CRM Supabase project. Never change the CRM project's auth settings
+  for this buyer flow.
+
+**Verification status:** JS parsed successfully and GitHub files were
+committed; Supabase functions and RLS checked. A real email signup,
+authenticated SAVE, dashboard view and mobile push should still be tested
+with a buyer account before production. Free-tier built-in email sending
+has provider rate/recipient restrictions and may need proper transactional
+email for wider public deployment.

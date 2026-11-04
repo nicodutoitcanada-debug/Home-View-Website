@@ -2102,7 +2102,9 @@ body.cost-open #homeViewUI.is-ready #costScaleControl { transform:translate3d(0,
 .hvsTextInput:focus { border-color:rgba(255,78,18,.75); }
 .hvsFormActions { display:flex; flex-wrap:wrap; gap:8px; margin-top:16px; }
 .hvsFormActions>* { flex:1; }
-#hvsAuthNotice { margin-top:12px; min-height:15px; color:#ff4e12; font-size:12px; line-height:1.4; }
+#hvsAuthNotice { margin-top:12px; min-height:18px; color:#fff6ef; font-size:15px; font-weight:700; line-height:1.48; padding:10px 12px; border:1px solid rgba(255,177,128,.65); border-radius:9px; background:rgba(69,31,18,.94); overflow-wrap:anywhere; }
+#hvsAuthNotice:empty { display:none; }
+#hvsLoginInlineError:not([hidden]) { color:#fff8f1; background:rgba(80,29,26,.96); border-color:rgba(255,190,175,.85); font-size:15px; line-height:1.5; font-weight:700; overflow-wrap:anywhere; }
 .hvsAccountSummary { margin:0 0 14px; font-size:12px; line-height:1.5; }
 .hvsAccountSummary strong { color:white; }
 #hvsMarieTools { margin-top:14px; padding-top:14px; border-top:1px solid rgba(255,255,255,.16); }
@@ -3684,6 +3686,9 @@ body.hvs-tutorial-open #homeViewUI #sliderContainer *{pointer-events:auto!import
  }
  #homeViewUI #calculatorMenuWrapper{scale:var(--hvs-phone-fit-scale,.72);transform-origin:left center;top:calc(50% - var(--hvs-phone-centering-offset,0px))!important}
  #homeViewUI #loginMenuWrapper{scale:var(--hvs-phone-fit-scale,.78);transform-origin:center center;top:calc(50% - var(--hvs-phone-centering-offset,0px))!important}
+ /* Login is the single portrait exception: keep native readable sizing and scrolling. */
+ body.login-mode #homeViewUI #loginMenuWrapper{scale:1; width:min(435px,calc(100vw - 26px));}
+ body.login-mode #homeViewUI #loginMenuWrapper .hvsAccountBody{max-height:min(68dvh,590px);overscroll-behavior:contain;}
  #homeViewUI #costScaleControl{scale:.78;transform-origin:left center}
 }
 /* Compact landscape phones: keep the newly designed Teleport Map at its
@@ -3967,6 +3972,28 @@ html.hvs-ios-viewport-stable #homeViewUI {
   top:0;left:0;right:auto;bottom:auto;
   width:var(--hvs-stable-viewport-width) !important;
   height:var(--hvs-stable-viewport-height) !important;
+}
+</style>
+
+<style id="hvs-login-portrait-stage-20261104">
+/* Login only: iOS retains the landscape pixel-streaming viewport during
+   rotation. Put the account dialog in the actual portrait viewport instead
+   without resizing or reconnecting the video stage. */
+@media screen and (orientation:portrait) and (max-width:700px){
+  html.hvs-ios-viewport-stable body.login-mode #homeViewUI {
+    position:fixed!important;top:0!important;left:0!important;
+    right:auto!important;bottom:auto!important;
+    width:100vw!important;height:100dvh!important;
+  }
+  body.login-mode #homeViewUI.is-ready #loginMenuWrapper {
+    left:50%!important;top:50%!important;right:auto!important;
+    width:min(435px,calc(100vw - 26px))!important;
+    scale:1!important;
+    transform:translate3d(-50%,-50%,0) scale(1);
+  }
+  body.login-mode #loginMenuWrapper .hvsAccountBody {
+    max-height:min(68dvh,590px);overflow-y:auto;
+  }
 }
 </style>
 
@@ -4896,7 +4923,8 @@ body.hvs-audio-ready:not(.hvs-session-ended):not(.hvs-movie-active)
 /* HVS Fictional Subdivision: replaces only the property-selection dialog. */
 #hvsPropertyPrompt { padding:clamp(8px,2dvh,20px); }
 #hvsPropertyPrompt #hvsPropertyDialog {
- width:min(1080px, 97vw); max-width:100%; max-height:calc(100dvh - 16px);
+ /* Match the dialog to the aspect-locked map instead of leaving wide side gutters. */
+ width:min(1080px, 97vw, calc((100dvh - 131px) * 2.0628 + 30px)); max-width:100%; max-height:calc(100dvh - 16px);
  padding:12px 14px 10px; overflow:hidden; display:flex; flex-direction:column;
  border-radius:23px; box-sizing:border-box;
  background:linear-gradient(155deg,rgba(83,100,106,.63),rgba(25,33,37,.90) 30%,rgba(12,19,23,.95));
@@ -4928,7 +4956,8 @@ body.hvs-audio-ready:not(.hvs-session-ended):not(.hvs-movie-active)
 #hvsPropertyDialog .hvsMapSelectedText strong {color:#ff804f;letter-spacing:.1em;font-size:1.1em;}
 #hvsPropertyDialog .hvsMapFooter>span {text-align:right;}
 @media(max-height:475px) and (orientation:landscape) {
- #hvsPropertyPrompt #hvsPropertyDialog {padding:7px 9px 6px;border-radius:15px;}
+ #hvsPropertyPrompt #hvsPropertyDialog {padding:7px 9px 6px;border-radius:15px;
+   width:min(1080px,97vw,calc((100dvh - 95px) * 2.0628 + 20px));}
  #hvsPropertyDialog .hvsMapHeading {padding-bottom:4px;}
  #hvsPropertyDialog .hvsMapHeading h2 {margin:0;font-size:14px;}
  #hvsPropertyDialog .hvsMapHeading p {font-size:9px;}
@@ -5535,7 +5564,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       </div>
       <div class="hvsSecondaryHeading">MARIE — ADMIN ACCOUNT MANAGEMENT</div><label class="hvsField" for="hvsManageAdminSelect">EDIT EXISTING ADMIN OR CREATE NEW</label><select id="hvsManageAdminSelect" class="hvsTextInput"><option value="">CREATE A NEW ADMIN</option></select><label class="hvsField" for="hvsManageAdminUsername">ADMIN USERNAME</label><input id="hvsManageAdminUsername" class="hvsTextInput" maxlength="48"><label class="hvsField" for="hvsManageAdminPassword">NEW PASSWORD</label><input id="hvsManageAdminPassword" class="hvsTextInput" type="password" autocomplete="new-password" placeholder="Required for new admin; blank to keep existing"><label class="hvsField" for="hvsMarieVerifyPassword">MARIE'S CURRENT PASSWORD (REQUIRED)</label><input id="hvsMarieVerifyPassword" class="hvsTextInput" type="password" autocomplete="current-password"><div class="hvsFormActions"><button type="button" id="hvsManageAdminSave" class="hvsActionButton primary">SAVE ADMIN</button></div><p class="hvsSettingInfo">Only Marie can use these controls in the local demo. Real admin security requires a server.</p></div></div>
    <div id="hvsAuthNotice" role="status" aria-live="polite"></div>
-   <p class="hvsSettingInfo">Prototype accounts are saved only in this browser on this device. Do not use real customer data or passwords.</p>
+   <p class="hvsSettingInfo">Buyer accounts use Supabase. Your saved home is stored locally and online after SAVE. For cost-free login and alert testing before starting the stream, open <a href="account-test.html" target="_blank" rel="noopener" style="color:#ffcfb2;font-weight:700;text-decoration:underline">FREE ACCOUNT TEST</a>.</p>
  </div></div>
 </div>
 
@@ -9424,9 +9453,16 @@ function startLoadingMedia() {
   bg.muted = true;
   intro.setAttribute('webkit-playsinline','');
   bg.setAttribute('webkit-playsinline','');
-  // Background only downloads fully once the introductory clip finishes.
-  // This reduces contention with the logo MP4 and Arcware initialization.
+  // Prefer the opening logo; prefetch the loading video once logo playback
+  // starts so it can be ready when the Lottie is revealed on a slower network.
   bg.preload = 'metadata';
+  intro.addEventListener('playing', () => {
+    bg.preload='auto';
+    try { bg.load(); } catch (error) { console.debug('[SPLASH] Background prefetch:',error); }
+  },{once:true});
+  bg.addEventListener('canplay',()=>{
+    if(introFinished && bg.paused && !bg.error) hvsTryPlaySplash(bg,()=>{});
+  });
   intro.addEventListener('ended', showLoadingLoop, { once:true });
   intro.addEventListener('error', () => {
     console.warn('[SPLASH] Intro MP4 failed to load/decode; using loading animation.');
@@ -11312,7 +11348,14 @@ if (dev_mode) {
   window.addEventListener('orientationchange',schedule,{passive:true});
   // Zooming the whole plan is intentional. Do not recompute its underlying
   // width/height as the slider moves: that caused the visible snap/jitter.
-  window.homeViewResizeTeleportMap=schedule;
+  // The caller invokes this while the teleport window is still hidden.
+  // Apply the measured dimensions NOW; waiting for rAF made it slide in at
+  // the old size, then visibly jump upward when the panel was relaid out.
+  window.homeViewResizeTeleportMap=()=>{
+    cancelAnimationFrame(raf);
+    applyLayout();
+    queueBrand();
+  };
   query.addEventListener?.('change',schedule);
   schedule();
 })();
@@ -11372,6 +11415,10 @@ document.querySelectorAll('.hvsCostShortcut').forEach(button => {
   function prepare(id){
     const panel=document.getElementById(id);
     if(!panel)return Number(slider.value)||1;
+    // Measure the final content/layout before choosing the first opening scale,
+    // rather than correcting a visible menu one animation frame later.
+    if(id==='profileMenuWrapper')window.homeViewSyncPhoneMenuFit?.();
+    if(id==='teleportMenuWrapper')window.homeViewResizeTeleportMap?.();
     let size=preferred.get(id);
     if(size===undefined){
       size=initialScale(panel,id);
@@ -11381,11 +11428,10 @@ document.querySelectorAll('.hvsCostShortcut').forEach(button => {
     slider.value=String(size);
     document.documentElement.style.setProperty('--ui-scale',String(size));
 
-    // Force the browser to resolve the final mobile right/top anchor and scale
-    // while the panel is STILL hidden. The following mode-class change can then
-    // animate from the correct geometry on its very first visible frame.
-    void panel.offsetWidth;
+    // Finish geometry synchronously at the final scale, while still hidden.
+    if(id==='profileMenuWrapper')window.homeViewSyncPhoneMenuFit?.();
     if(id==='teleportMenuWrapper')window.homeViewResizeTeleportMap?.();
+    void panel.offsetWidth;
     return size;
   }
   window.homeViewPrepareMenuOpen=prepare;
@@ -11716,6 +11762,9 @@ body.hvs-phone-landscape #homeViewUI #profileOuterBox {
   box-sizing:border-box;
   display:flex;
   flex-direction:column;
+  /* Reserve the final menu height before entrance, including when room data
+     arrives a moment later. Only the existing option list scrolls. */
+  height:min(380px,var(--hvs-personalize-fit-maxheight, calc(100dvh - 26px))) !important;
   max-height:var(--hvs-personalize-fit-maxheight, calc(100dvh - 26px)) !important;
   overflow:hidden;
 }
@@ -11825,7 +11874,9 @@ body.hvs-session-ended #hvsRotateOverlay {display:none!important;pointer-events:
       const available=Math.min(innerHeight,window.visualViewport?.height||innerHeight)-28;
       panel.style.setProperty('--hvs-personalize-fit-maxheight', Math.max(105,Math.floor(available/scale))+'px');
     }else panel?.style.removeProperty('--hvs-personalize-fit-maxheight');
-    if(!phone || ended()) {portraitShown=false;hide();return;}
+    // Buyer login is intentionally usable in portrait. Return to the
+    // landscape guide automatically after login closes.
+    if(!phone || ended() || body.classList.contains('login-mode')) {portraitShown=false;hide();return;}
     if(!landscape){
       clearTimeout(thanksTimer);
       portraitShown=true;
@@ -11842,6 +11893,14 @@ body.hvs-session-ended #hvsRotateOverlay {display:none!important;pointer-events:
   }
   function schedule(){clearTimeout(resizeTimer);resizeTimer=setTimeout(update,180);}
   update();
+  // React before the next paint when login opens/closes; a delayed resize
+  // event is not enough on iOS, where the overlay otherwise blocks typing.
+  let lastLoginMode=body.classList.contains('login-mode');
+  new MutationObserver(()=>{
+    const current=body.classList.contains('login-mode');
+    if(current!==lastLoginMode){lastLoginMode=current;update();}
+  }).observe(body,{attributes:true,attributeFilter:['class']});
+  window.homeViewSyncPhoneMenuFit=update;
   addEventListener('resize',schedule,{passive:true});
   addEventListener('orientationchange',schedule,{passive:true});
   window.visualViewport?.addEventListener('resize',schedule,{passive:true});

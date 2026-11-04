@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#10141a">
+<title>Home View | Free Account and Alert Test</title>
+<style>
+:root{color-scheme:dark;font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:16px}
+*{box-sizing:border-box}body{margin:0;background:#10141a;color:#f9fafb;padding:calc(22px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom))}
+main{max-width:540px;margin:0 auto}h1{font-size:1.7rem;line-height:1.22;margin:8px 0}h2{font-size:1.05rem;margin:0 0 12px}.sub{color:#d2d7de;line-height:1.5;margin:0 0 18px}
+.panel{padding:19px 17px;border:1px solid #47515e;background:#1b222b;border-radius:15px;margin:14px 0}
+label{display:block;font-size:.86rem;font-weight:700;color:#f0f4f8;margin:13px 0 5px}
+input{width:100%;background:#0c1016;border:1px solid #85909e;border-radius:9px;color:#fff;font:inherit;min-height:46px;padding:10px 12px}
+input:focus{outline:2px solid #ff925c;outline-offset:1px}button,.linkbutton{border:0;border-radius:10px;display:inline-block;background:#f05a22;color:#111;font:700 .94rem system-ui,sans-serif;padding:12px 15px;min-height:46px;cursor:pointer;text-align:center;text-decoration:none}
+button.secondary,.linkbutton.secondary{background:#323c49;color:#fff;border:1px solid #8a97a7}
+button:disabled{opacity:.47;cursor:not-allowed}.buttons{display:flex;flex-wrap:wrap;gap:9px;margin-top:15px}.buttons>*{flex:1;min-width:130px}
+.status{padding:14px 15px;border:2px solid #78899a;border-radius:11px;background:#172230;color:#fff;font-size:1rem;font-weight:700;line-height:1.5;overflow-wrap:anywhere;margin:12px 0}
+.status.good{border-color:#78d19e;background:#123322;color:#f0fff4}.status.bad{border-color:#ff8b80;background:#4c1f21;color:#fff3f1}
+.status.warn{border-color:#ffd183;background:#402e15;color:#fff5e7}
+.small{font-size:.88rem;color:#dce2e8;line-height:1.5}.mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;word-break:break-word}
+#accountPanel[hidden],#leadPanel[hidden],#detail[hidden]{display:none!important}
+#detail{white-space:pre-wrap;border:1px solid #6c7c8e;border-radius:8px;padding:12px;font: .85rem/1.5 ui-monospace,monospace;overflow-wrap:anywhere;background:#0c1016}
+a{color:#ffc29e}.footer{margin-top:20px;color:#bfc7cf;font-size:.85rem}strong{color:#fff}
+</style>
+</head><body><main>
+<p style="font-weight:800;color:#ffab7a;letter-spacing:.07em">HOME VIEW SOLUTIONS · DEMO TEST</p>
+<h1>Test accounts and phone alerts — without starting the game</h1>
+<p class="sub">This page does not connect to Arcware and does not use paid streaming time. It connects to the exact same Supabase buyer login, saved-design table and alert functions as the game.</p>
+<section class="panel" aria-labelledby="settingTitle">
+<h2 id="settingTitle">1. Check registration settings</h2>
+<div class="status" id="settingStatus" role="status" aria-live="polite">Checking the live Supabase confirmation setting…</div>
+<div class="buttons"><button type="button" class="secondary" id="recheck">RECHECK SETTINGS</button><a class="linkbutton secondary" href="https://supabase.com/dashboard/project/jythgvjtulxivwmlicvi/auth/providers" target="_blank" rel="noopener">SUPABASE SETTINGS</a></div>
+<p class="small">If email confirmation is ON, open Supabase Settings above → Email → turn <strong>Confirm Email OFF</strong> → Save. Recheck before creating an account.</p>
+</section>
+<section class="panel" aria-labelledby="accountTitle">
+<h2 id="accountTitle">2. Create or reuse your test buyer account</h2>
+<p class="small">Use a Gmail + alias of an email you already own, for example <span class="mono">yourname+hvstest1@gmail.com</span>. It goes to your normal inbox, and you can use that account for every later test. No new mailbox is required.</p>
+<form id="accountForm">
+<label for="buyerName">BUYER NAME</label><input id="buyerName" maxlength="48" autocomplete="name" value="HVS Demo Buyer" required>
+<label for="buyerEmail">EMAIL ADDRESS</label><input id="buyerEmail" type="email" inputmode="email" autocomplete="email" placeholder="yourname+hvstest1@gmail.com" maxlength="180" required>
+<label for="buyerPassword">PASSWORD (AT LEAST 8 CHARACTERS)</label><input id="buyerPassword" type="password" minlength="8" autocomplete="current-password" required>
+<div class="buttons"><button id="create" type="button" disabled>CREATE TEST ACCOUNT</button><button id="login" type="button" class="secondary">LOG IN TO EXISTING ACCOUNT</button></div>
+</form>
+<div class="status" id="accountStatus" role="status" aria-live="polite">No test buyer signed in yet.</div>
+<div class="buttons"><button type="button" id="signout" class="secondary" hidden>LOG OUT / SWITCH BUYER</button></div>
+</section>
+<section class="panel" id="leadPanel" hidden aria-labelledby="leadTitle">
+<h2 id="leadTitle">3. Save a sample buyer and send the phone alert</h2>
+<p class="small">This test saves a clearly labelled example: <strong>Property One · Kitchen counter marble_02 · CAD $392,500</strong>, with “Request Contact” selected. It will appear in the builder dashboard as a test lead and may notify subscribed phones.</p>
+<div class="buttons"><button type="button" id="sendLead">SAVE TEST LEAD &amp; SEND ALERT</button></div>
+<div class="status" id="leadStatus" role="status" aria-live="polite">Ready to submit your sample test lead.</div>
+<pre id="detail" hidden></pre>
+<div class="buttons"><a class="linkbutton secondary" href="https://www.homeviewsolutions.com/dashboard/" target="_blank" rel="noopener">OPEN BUILDER DASHBOARD</a><a class="linkbutton secondary" href="https://www.homeviewsolutions.com/demo" target="_blank" rel="noopener">OPEN GAME AFTER TEST</a></div>
+</section>
+<p class="footer">This is a test-only page. It uses public Supabase configuration and your own authenticated account. No service-role keys or demo access codes are stored here.</p>
+</main>
+<script src="dashboard-config.js" defer></script>
+<script src="hvs-buyer-auth.js" defer></script>
+<script>
+document.addEventListener('DOMContentLoaded',()=>{
+  'use strict';
+  const q=id=>document.getElementById(id);
+  const base=()=>window.HVS_DASHBOARD_CONFIG;
+  const auth=()=>window.HVSBuyerAuth;
+  let ready=false, busy=false;
+  function setStatus(id,msg,kind=''){
+    const e=q(id);e.className='status'+(kind?' '+kind:'');e.textContent=msg;
+  }
+  function setBusy(value){busy=value;q('create').disabled=value||!ready;q('login').disabled=value;q('sendLead').disabled=value;q('recheck').disabled=value;}
+  async function inspect(){
+    if(busy)return; q('recheck').disabled=true;
+    setStatus('settingStatus','Checking Supabase live settings…');
+    try{
+      ready=await auth().signupReady();
+      setStatus('settingStatus',ready?
+        'PASS — Email confirmation is OFF. New buyer accounts can log in immediately.':
+        'BLOCKED — Confirm Email is still ON in the Home View Demo Supabase project. Do not attempt another registration until you switch it OFF and recheck.',ready?'good':'bad');
+    }catch(e){
+      ready=false;setStatus('settingStatus','Could not check Supabase settings: '+e.message+'. Please try again before registering.','bad');
+    }finally{q('recheck').disabled=false;q('create').disabled=!ready;}
+  }
+  function accountFields(){
+    return {name:q('buyerName').value.trim(),email:q('buyerEmail').value.trim(),password:q('buyerPassword').value};
+  }
+  function signedIn(user){
+    if(!user?.id)throw Error('No authenticated user was returned.');
+    setStatus('accountStatus','SIGNED IN — '+(user.email||'Buyer')+'. Your buyer session is ready.','good');
+    q('leadPanel').hidden=false;q('signout').hidden=false;
+  }
+  async function authAction(mode){
+    if(busy)return;const x=accountFields();
+    if(!x.email||!x.password){setStatus('accountStatus','Enter your test email and password.','warn');return;}
+    if(mode==='create'&&(!ready||x.password.length<8||x.name.length<2)){
+      setStatus('accountStatus','Confirm Email must be OFF; buyer name and password are required (password minimum 8 characters).','bad');return;
+    }
+    setBusy(true);setStatus('accountStatus',mode==='create'?'Creating your buyer account…':'Logging in…');
+    try{
+      const user=mode==='create'?(await auth().signUp(x.email,x.password,x.name)).user:await auth().signIn(x.email,x.password);
+      if(!user)throw Error('No login session was returned; email confirmations may still be active.');
+      signedIn(user);
+      q('buyerPassword').value='';
+    }catch(e){
+      let msg=e.message||'Account request failed.';
+      if(/already registered/i.test(msg))msg+=' Use LOG IN TO EXISTING ACCOUNT instead.';
+      setStatus('accountStatus',msg,'bad');
+    }finally{setBusy(false);}
+  }
+  async function submit(){
+    if(busy)return;setBusy(true);q('detail').hidden=true;
+    setStatus('leadStatus','Saving the sample design to Supabase…');
+    try{
+      const user=await auth().getUser();if(!user)throw Error('Log in before saving.');
+      const jwt=await auth().token();
+      const id=crypto.randomUUID();
+      const sampleSettings={PropertyChoice:'one',FirstFloorLayout:'lounge',Laminate_Flooring:'Wood_04',Kitchen_Counters:'marble_02',Kitchen_IslandTop:'marble_04'};
+      const payload={
+        id,buyer_name:'HVS Demo Buyer · FREE TEST',buyer_email:user.email,buyer_phone:null,
+        property_name:'Property One',home_model:'HVS Free Test (no Arcware)',
+        saved_configuration:{currentUser:'HVS Demo Buyer',profile:{settings:sampleSettings,costOverrides:{},budget:null},effectiveCosts:{'Base Cost':380000,'Example Test Upgrades':12500},total:392500,submissionSource:'free-preflight-test'},
+        base_price:380000,upgrades_price:12500,total_price:392500,contact_requested:true,marketing_consent:false
+      };
+      const common={'apikey':base().publishableKey,'Authorization':'Bearer '+jwt,'Content-Type':'application/json'};
+      const response=await fetch(base().url+'/functions/v1/hvs-submit-lead',{method:'POST',headers:common,body:JSON.stringify(payload)});
+      const result=await response.json().catch(()=>({}));
+      if(!response.ok||!result.ok)throw Error(result.error||'Lead submission was not confirmed.');
+      setStatus('leadStatus','Saved to Supabase. Checking phone alert and reading back the saved information…','good');
+      let push='not checked';
+      try{
+        const p=await fetch(base().url+'/functions/v1/hvs-push-deliver',{method:'POST',headers:common,body:JSON.stringify({id})});
+        const pr=await p.json().catch(()=>({}));
+        push=p.ok&&pr.ok?pr.push||'unknown':pr.error||'not confirmed';
+      }catch(e){push='could not confirm: '+e.message;}
+      const query='?select=id,buyer_name,home_model,total_price,saved_configuration,contact_requested&id=eq.'+encodeURIComponent(id);
+      const check=await fetch(base().url+'/rest/v1/hvs_buyer_leads'+query,{headers:common});
+      const rows=await check.json().catch(()=>[]);
+      if(!check.ok||!Array.isArray(rows)||rows.length!==1)throw Error('Saved lead accepted, but read-back from the database was not confirmed.');
+      const row=rows[0];
+      const consistent=row.total_price===392500&&row.saved_configuration?.profile?.settings?.Kitchen_Counters==='marble_02'&&row.contact_requested===true;
+      const message=consistent?'PASS — Database read-back matches the test selections and price.':'WARNING — Database read-back differs from the test values.';
+      setStatus('leadStatus',message+' Phone notification status: '+push+'.',consistent?'good':'bad');
+      const output={buyer_name:row.buyer_name,model:row.home_model,property:'Property One',total_price:row.total_price,counter_finish:row.saved_configuration?.profile?.settings?.Kitchen_Counters,request_contact:row.contact_requested,telegram:result.notification,phone_push:push,lead_id:row.id};
+      q('detail').textContent=JSON.stringify(output,null,2);q('detail').hidden=false;
+    }catch(e){setStatus('leadStatus','FAILED — '+(e.message||'Could not complete test')+'. Your game has not been launched.','bad');}
+    finally{setBusy(false);}
+  }
+  q('recheck').addEventListener('click',inspect);
+  q('create').addEventListener('click',()=>authAction('create'));
+  q('login').addEventListener('click',()=>authAction('login'));
+  q('sendLead').addEventListener('click',submit);
+  q('signout').addEventListener('click',async()=>{
+    if(busy)return;setBusy(true);try{await auth().logOut();q('leadPanel').hidden=true;q('signout').hidden=true;setStatus('accountStatus','Signed out. Log in or create a different test buyer.');}finally{setBusy(false);}
+  });
+  auth().getUser().then(user=>{if(user)signedIn(user);}).catch(()=>{});
+  inspect();
+});
+</script>
+</body></html>

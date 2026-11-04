@@ -26,7 +26,13 @@
    let data={};try{data=await response.json()}catch(_){}
    if(!response.ok){
      let msg=data.msg||data.error_description||data.message||data.error||'Authentication request failed.';
-     if(response.status===429)msg='Too many login attempts. Please try again later.';
+     if(response.status===429){
+       msg=data.code==='over_email_send_rate_limit'?
+         'Supabase email limit reached. Email confirmation is still enabled: stop retrying and check settings on the free account-test page.':
+         'Supabase has temporarily limited authentication attempts. Do not retry repeatedly during a paid stream; use the free account-test page.';
+     }
+     if(data.code==='email_address_invalid')
+       msg='This email was rejected by Supabase. For testing, use a Gmail + alias of an address you own (example: yourname+test1@gmail.com).';
      throw Error(String(msg));
    }
    return data;
@@ -44,7 +50,16 @@
    });
    return remember(response);
  }
+ async function signupReady(){
+   // The publicly documented Supabase Auth settings endpoint is safe to read in the browser.
+   // Never send a signup while email confirmation is enabled: it can exhaust the
+   // project's limited email allowance and cost an active Arcware demo session.
+   const settings=await call('/auth/v1/settings',{method:'GET',headers:publicHeaders()});
+   return settings?.mailer_autoconfirm===true;
+ }
  async function signUp(email,password,displayName){
+   if(!await signupReady())
+     throw Error('Account creation is paused: Supabase Confirm Email is still ON. Switch it OFF under Home View Demo > Authentication > Email. Test it free at account-test.html before launching the game.');
    // Confirmation URL and allowlist are configured in the HVS Supabase project.
    // Unlike a direct /demo redirect, a confirmation should NOT start paid Arcware.
    const response=await call('/auth/v1/signup',{
@@ -105,7 +120,7 @@
    }catch(e){console.warn('[HOME VIEW AUTH] Remote sign-out unavailable',e);}
  }
  window.HVSBuyerAuth=Object.freeze({
-   signIn,signUp,getUser,getSavedDesign,token,logOut,
+   signIn,signUp,signupReady,getUser,getSavedDesign,token,logOut,
    user:()=>session?.user||null,
    hasSession:()=>!!session?.access_token,
    latestLeadId:()=>latestLeadId,

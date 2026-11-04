@@ -72,7 +72,9 @@
   function buildPayload(source){
     const state=getState();if(!state?.currentUser)return null;
     if(!window.homeViewCloudBuyerId?.())throw Error('Please sign in with BUYER LOGIN to save your home online.');
-    const buyer=keyFor(state.currentUser);
+    // Contact preferences are saved under the authenticated buyer ID, not the display name.
+    // Reuse that same key so online SAVE can retrieve the buyer's current choices.
+    const buyer=currentBuyer();
     const profile=read(CONTACT_KEY)[buyer]||{};
     const authUser=window.HVSBuyerAuth?.user?.();
     if(authUser?.email)profile.email=authUser.email;
