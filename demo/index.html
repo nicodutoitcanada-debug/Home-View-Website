@@ -5050,6 +5050,18 @@ document.addEventListener('DOMContentLoaded',()=>{
   });
 },{once:true});
 </script>
+
+<style id="hvs-lot-loading-style">
+#hvsLotLoadingOverlay{position:fixed;inset:0;z-index:17000;display:flex;align-items:center;justify-content:center;padding:24px;box-sizing:border-box;opacity:0;visibility:hidden;pointer-events:none;background:rgba(0,0,0,.12);transition:opacity .4s ease,visibility 0s linear .4s;touch-action:none}
+#hvsLotLoadingOverlay.is-open{opacity:1;visibility:visible;pointer-events:auto;transition-delay:0s}
+#hvsLotLoadingCard{width:min(340px,100%);padding:28px 24px;text-align:center;box-sizing:border-box;border-radius:24px;color:rgba(255,255,255,.96);font-family:"HomeView Myriad",Arial,sans-serif;border:1px solid rgba(255,255,255,.22);background:linear-gradient(150deg,rgba(91,103,105,.53),rgba(28,35,38,.78) 48%,rgba(15,22,26,.83));backdrop-filter:blur(12px) saturate(120%);-webkit-backdrop-filter:blur(12px) saturate(120%);box-shadow:0 20px 62px rgba(0,0,0,.30),inset 0 1px 0 rgba(255,255,255,.14)}
+#hvsLotLoadingCard h2{margin:17px 0 9px;font-size:20px;font-weight:600}
+#hvsLotLoadingCard p{margin:0;font-size:14px;line-height:1.45;color:rgba(255,255,255,.8)}
+.hvsLotSpinner{display:block;width:30px;height:30px;box-sizing:border-box;margin:auto;border:2px solid rgba(255,255,255,.22);border-top-color:rgba(255,255,255,.96);border-radius:50%;animation:hvsLotSpin .85s linear infinite}
+@keyframes hvsLotSpin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.hvsLotSpinner{animation-duration:2s}#hvsLotLoadingOverlay{transition:none}}
+</style>
+
 </head><body>
 <div id="video-container" tabindex="0"></div>
 <!-- Stream audio starts muted on devices requiring a user gesture.
@@ -7135,12 +7147,16 @@ document.getElementById('hvsPropertyIntroContinue').addEventListener('click',hvs
 window.homeViewTestPropertyOffer=()=>hvsShowPropertyPrompt();
 function hvsChooseProperty(property){
     if(!['one','two'].includes(property) || window.homeViewGetPropertyChoice?.()===property)return;
-    window.homeViewSavePropertyChoice?.(property);
-    hvsRefreshPropertyChoices();
+    if(window.homeViewLotIsLoading?.())return;
     const command={property};
     const sent=window.homeViewSend?.(command);
-    if(sent===false)console.warn('[PROPERTY] Unable to confirm send:',command);
-    else console.info('[PROPERTY] Selected:',command);
+    if(sent!==true){
+        console.warn('[PROPERTY] Unable to confirm send:',command);
+        return;
+    }
+    window.homeViewSavePropertyChoice?.(property);
+    hvsRefreshPropertyChoices();
+    console.info('[PROPERTY] Selected:',command);
     hvsClosePropertyPrompt();
 }
 hvsPropertyOne.addEventListener('click',()=>hvsChooseProperty('one'));
@@ -9303,6 +9319,45 @@ window.addEventListener('resize',hvsUpdateHowToScale);
 
 </script>
 
+
+<div id="hvsLotLoadingOverlay" aria-hidden="true">
+  <div id="hvsLotLoadingCard" role="status" aria-live="polite" aria-atomic="true">
+    <span class="hvsLotSpinner" aria-hidden="true"></span>
+    <h2>Loading your lot…</h2>
+    <p>Please wait while we prepare your selected property.</p>
+  </div>
+</div>
+<script id="hvs-lot-loading-controller">
+(() => {
+  const overlay=document.getElementById('hvsLotLoadingOverlay');
+  let pending=false;
+  window.homeViewLotIsLoading=()=>pending;
+  window.homeViewShowLotLoading=()=>{
+    if(pending)return false;
+    pending=true;
+    overlay.setAttribute('aria-hidden','false');
+    overlay.setAttribute('aria-busy','true');
+    overlay.classList.add('is-open');
+    return true;
+  };
+  window.homeViewHideLotLoading=()=>{
+    if(!pending)return;
+    pending=false;
+    overlay.classList.remove('is-open');
+    overlay.setAttribute('aria-hidden','true');
+    overlay.setAttribute('aria-busy','false');
+  };
+  window.homeViewReceiveLotStatus=data=>{
+    if(data && typeof data==='object' && data.lot==='loaded')window.homeViewHideLotLoading();
+  };
+  // Stop keyboard movement reaching the stream while the property is swapping.
+  for(const type of ['keydown','keyup','keypress'])window.addEventListener(type,event=>{
+    if(!pending)return;
+    event.preventDefault();event.stopImmediatePropagation();
+  },true);
+})();
+</script>
+
 <script id="hvs-login-keyboard-isolation">
 /* Keep ALL login typing (including the Enter key used for submission)
    from reaching Unreal through the Pixel Streaming keyboard handler.
@@ -9520,7 +9575,17 @@ function showLoadingLoop() {
   }, 500);
 }
 
+// Lot swaps share one transport hook in local and cloud modes. Show BEFORE
+// sending so even an immediate acknowledgement can dismiss the overlay.
 function sendUnreal(payload) {
+  const lotChange=payload && ['one','two'].includes(payload.property);
+  if(lotChange && window.homeViewLotIsLoading?.())return false;
+  if(lotChange)window.homeViewShowLotLoading?.();
+  const sent=hvsSendUnrealTransport(payload);
+  if(lotChange && !sent)window.homeViewHideLotLoading?.();
+  return sent;
+}
+function hvsSendUnrealTransport(payload) {
   if (dev_mode) {
     // Your working LUX code sends *objects* to Epic's stream.emitUIInteraction.
     if (!localStream || typeof localStream.emitUIInteraction !== 'function') {
@@ -9571,11 +9636,11 @@ let viewportSyncTimer = null;
 let viewportRetryTimers = [];
 
 // DESKTOP ONLY: LUX-proven, colour-neutral adaptive render size.
-// Mobile performance test: request 24 FPS on phones/tablets; desktop stays 30 FPS.
+// Proven 5.6 quality preset on UE 5.8: 30 FPS maximum on every platform.
 // NEVER request 60 FPS on any platform.
 const HVS_MOBILE_STREAM_TARGET = /Android|iPhone|iPod|iPad/i.test(navigator.userAgent) ||
   window.matchMedia('(pointer:coarse)').matches;
-const HVS_REQUESTED_MAX_FPS = HVS_MOBILE_STREAM_TARGET ? 24 : 30;
+const HVS_REQUESTED_MAX_FPS = 30;
 const HVS_DESKTOP_RESOLUTION_TIERS = [1280, 1600, 1920]; // longest edge, never crop
 const HVS_DESKTOP_RESIZE_ENABLED = !/Android|iPhone|iPod|iPad/i.test(navigator.userAgent) &&
   !window.matchMedia('(pointer:coarse)').matches;
@@ -9606,12 +9671,10 @@ function getStreamingViewportResolution() {
   const dpr = Math.max(1, window.devicePixelRatio || 1);
   let width = Math.round(cssWidth * dpr);
   let height = Math.round(cssHeight * dpr);
-  // MOBILE PERFORMANCE TEST: cap the LONGEST render edge at 960 physical pixels.
-  // The UE 5.8 live diagnostic proved the native resize is taking effect.
-  // 960 substantially reduces render/encode/decode load while preserving the
-  // browser aspect ratio. Desktop retains its colour-safe adaptive tiers unchanged.
+  // Proven 5.6 mobile quality: 1440px maximum long edge, original aspect.
+  // Keep the UE 5.8 native resolution transport and desktop tiers unchanged.
   if (window.matchMedia('(pointer:coarse)').matches) {
-    const factor = Math.min(1, 960 / Math.max(width, height));
+    const factor = Math.min(1, 1440 / Math.max(width, height));
     width = Math.round(width * factor);
     height = Math.round(height * factor);
   } else if (HVS_DESKTOP_RESIZE_ENABLED) {
@@ -10335,6 +10398,7 @@ function receiveUnrealResponse(response) {
   try { if (typeof response === 'string') data = JSON.parse(response); } catch (_) {}
   // Some older Unreal builds return nested serialized strings.
   try { if (typeof data === 'string') data = JSON.parse(data); } catch (_) {}
+  window.homeViewReceiveLotStatus?.(data);
   // Character location and yaw arrive each Tick. Handle them without console
   // spam, and without ever interfering with room/finish/game messages.
   if (window.homeViewHandleMapResponse?.(data) === true) return;
@@ -10827,12 +10891,11 @@ let localStyles = null;
 // cloud-controlled encoder settings can override it. No resolution changes.
 const HVS_QUALITY_MOBILE = /Android|iPhone|iPod|iPad/i.test(navigator.userAgent) ||
   (window.matchMedia('(pointer:coarse)').matches && Math.min(innerWidth,innerHeight)<900);
-// Mobile v6 test: begin at 1.3 Mbps, 960px long-edge and 24 FPS, then retain
-// the existing adaptive bitrate ladder and recover upward only after playback
-// proves healthy. Desktop remains completely unchanged. These are Arcware/Epic
-// WebRTC bitrate requests; the cloud encoder may still override them.
+// Proven 5.6 mobile quality on UE 5.8: start at 2.0 Mbps; adapt within
+// 1.3–6.0 Mbps using the same 30 FPS thresholds and recovery hysteresis.
+// Desktop bitrate/colour settings are unchanged. Cloud may override hints.
 const HVS_QUALITY_LEVELS = HVS_QUALITY_MOBILE ? [1300,1600,2000,2800,4000,6000] : [5000,7000,10000,14000];
-let hvsQualityIndex=HVS_QUALITY_MOBILE?0:0;
+let hvsQualityIndex=HVS_QUALITY_MOBILE?2:0;
 let hvsQualityConfig=null;
 let hvsQualityTimer=null;
 let hvsQualityPrevious=null;
@@ -10886,20 +10949,20 @@ async function hvsMonitorQuality(){
         // Mobile needs earlier protection from jitter; desktop thresholds
         // remain exactly the same as the successfully tested build.
         const bad=HVS_QUALITY_MOBILE
-          ? ((fps<20 && kbps>180) || lossRatio>.025 || (rtt!==null&&rtt>.28))
+          ? ((fps<25 && kbps>180) || lossRatio>.025 || (rtt!==null&&rtt>.28))
           : ((fps<17 && kbps>180) || lossRatio>.075 || (rtt!==null&&rtt>.48));
         const good=HVS_QUALITY_MOBILE
-          ? (fps>=23 && lossRatio<.010 && (rtt===null||rtt<.18))
+          ? (fps>=28 && lossRatio<.010 && (rtt===null||rtt<.18))
           : (fps>=24 && lossRatio<.018 && (rtt===null||rtt<.22));
         const severe=HVS_QUALITY_MOBILE &&
-          ((fps<12 && kbps>180) || lossRatio>.08);
+          ((fps<15 && kbps>180) || lossRatio>.08);
         if(bad){hvsQualityBad++;hvsQualityGood=0;}
         else if(good){hvsQualityGood++;hvsQualityBad=0;}
         else{hvsQualityBad=0;hvsQualityGood=0;}
         // Hysteresis prevents bitrate oscillation. Loss/RTT are hints, not guarantees.
         if((hvsQualityBad>=2 || severe) && hvsQualityIndex>0){
           hvsQualityIndex--;hvsQualityBad=0;hvsQualityGood=0;hvsApplyBitrateHint();
-        } else if(hvsQualityGood>=(HVS_QUALITY_MOBILE?5:4) && hvsQualityIndex<HVS_QUALITY_LEVELS.length-1){
+        } else if(hvsQualityGood>=(HVS_QUALITY_MOBILE?7:4) && hvsQualityIndex<HVS_QUALITY_LEVELS.length-1){
           hvsQualityIndex++;hvsQualityGood=0;hvsQualityBad=0;hvsApplyBitrateHint();
         }
       }
@@ -11033,6 +11096,7 @@ function homeViewDetachStream(){
   try {document.getElementById('video-container')?.replaceChildren();}catch(_){}
 }
 window.homeViewEndSession=async(message='Your session has ended.',options={})=>{
+  window.homeViewHideLotLoading?.();
   if(homeViewTeardownStarted)return;
   window.HVSDesignRestore?.cancel?.();
   // All legacy disconnect/error/inactivity paths keep their original save attempt.
@@ -11220,7 +11284,7 @@ if (dev_mode) {
     const setup = new ArcwareInit(
       { shareId:SHARE_ID },
        { initialSettings:{ AutoConnect:true, AutoPlayVideo:true,
-           WebRTCFPS:HVS_REQUESTED_MAX_FPS, // mobile 24 FPS; desktop 30 FPS; never 60
+           WebRTCFPS:HVS_REQUESTED_MAX_FPS, // 30 FPS maximum on mobile and desktop; never 60
            // Mobile: exact existing 1300..6000 kbps adaptive controller.
            // Desktop: LUX-style original Arcware bitrate/codec for true colour;
            // adapt only the render resolution, not bitrate.
