@@ -5062,6 +5062,12 @@ document.addEventListener('DOMContentLoaded',()=>{
 @media(prefers-reduced-motion:reduce){.hvsLotSpinner{animation-duration:2s}#hvsLotLoadingOverlay{transition:none}}
 </style>
 
+
+<style id="hvs-session-ui-isolation">
+/* Session status owns the UI, including late dynamically inserted dialogs. */
+body:is(.hvs-session-ending,.hvs-session-ended)>:not(#hvsSessionScreen):not(#video-container):not(script):not(style){display:none!important;pointer-events:none!important}
+body:is(.hvs-session-ending,.hvs-session-ended) #hvsSessionScreen{z-index:2147483000!important}
+</style>
 </head><body>
 <div id="video-container" tabindex="0"></div>
 <!-- Stream audio starts muted on devices requiring a user gesture.
@@ -5870,6 +5876,7 @@ let teleportStatusSequence = 0;
 // Shared two-line AE-style status animation: Teleport + successful login.
 // A new notice replaces the old one and invalidates its pending exit timers.
 function showHomeViewAnimatedStatus(title, subtitle = '') {
+    if(window.homeViewCanOpenUi?.()===false)return false;
     const sequence = ++teleportStatusSequence;
     clearTimeout(teleportStatusExitTimer);
     clearTimeout(teleportStatusHideTimer);
@@ -6976,6 +6983,7 @@ function closeUpstairsLayoutDialog() {
     if (document.activeElement?.closest?.('#upstairsLayoutOverlay')) document.activeElement.blur();
 }
 function openUpstairsLayoutDialog() {
+    if(window.homeViewCanOpenUi?.()===false)return false;
     if (currentTeleportFloor !== 'first' || !body.classList.contains('teleport-mode')) return;
     // UPSTAIRS_LAYOUT_OFFER_GUARD: The act of opening the manual selector is
     // enough to explain the alternative layout. Mark the introduction seen
@@ -7050,6 +7058,7 @@ function hvsCloseLayoutRoomPrompt(){
     // Existing UI mode, calculator, map state and animations were never reset.
 }
 function hvsShowLayoutRoomPrompt(){
+    if(window.homeViewCanOpenUi?.()===false)return false;
     if(hvsLayoutRoomPrompt.classList.contains('is-open'))return;
     closeUpstairsLayoutDialog();
     hvsSyncLayoutRoomPrompt();
@@ -7107,6 +7116,7 @@ function hvsClosePropertyPrompt(){
     if(document.activeElement?.closest?.('#hvsPropertyPrompt'))document.activeElement.blur();
 }
 function hvsShowPropertyPrompt(){
+    if(window.homeViewCanOpenUi?.()===false)return false;
     if(hvsPropertyPrompt.classList.contains('is-open'))return false;
     hvsRefreshPropertyChoices();
     document.body.classList.add('hvs-property-offer-visible');
@@ -7122,6 +7132,7 @@ function hvsClosePropertyIntroduction(){
     if(document.activeElement?.closest?.('#hvsPropertyIntroduction'))document.activeElement.blur();
 }
 function hvsShowPropertyIntroduction(){
+    if(window.homeViewCanOpenUi?.()===false)return false;
     if(hvsPropertyIntroduction.classList.contains('is-open'))return false;
     hvsPropertyIntroduction.classList.add('is-open');
     hvsPropertyIntroduction.setAttribute('aria-hidden','false');
@@ -8333,6 +8344,7 @@ window.homeViewOnLevelReady=function(){
     console.info('[HOME VIEW] Unreal packaged defaults retained; no finish/property startup overrides.');
 };
 function hvsOpenCost(){
+    if(window.homeViewCanOpenUi?.()===false)return false;
     document.body.classList.add('cost-open'); hvsPreviousTotal=null;hvsLastChangedKey=null;
     hvsRenderCost();
 }
@@ -8379,6 +8391,7 @@ function hvsCloseLoginAfterSuccess(title,description){
     },850);
 }
 function hvsOpenLogin(){
+    if(window.homeViewCanOpenUi?.()===false)return false;
     hvsCloseCost();clearModes();document.body.classList.add('login-mode');
     if(hvsResumeSaveAfterLogin)hvsLoginTab='user';
     hvsCreatingAccount=false;hvsDismissAdminSwitch();hvsLoginError('');hvsRenderLogin();
@@ -8877,6 +8890,7 @@ function hvsMovieToggleTargets(suppress){
     }
 }
 function hvsMovieBegin(){
+    if(window.homeViewCanOpenUi?.()===false)return false;
     if(hvsMoviePhase!=='idle')return;
     if(!document.getElementById('homeViewUI').classList.contains('is-ready')){
         console.warn('[MOVIE] Game is not ready yet');return;
@@ -8991,6 +9005,7 @@ hvsMovieExitButton.addEventListener('click',hvsMovieExit);
 let HVS_AFK_IDLE_TIMEOUT_MS = 5 * 60 * 1000;
 let HVS_AFK_COUNTDOWN_SECONDS = 15;
 let hvsIdleTimer = null;
+let hvsLastActivityAt=Date.now();
 let hvsCountdownTimer = null;
 let hvsAfkRemaining = HVS_AFK_COUNTDOWN_SECONDS;
 let hvsAfkPromptShowing = false;
@@ -9107,9 +9122,23 @@ function hvsMonitorAfk(){
   return window.homeViewLevelReady===true&&!window.homeViewSessionIntentional&&!window.homeViewConnectionProblem;
 }
 function hvsResetAfkTimer(){
+  hvsLastActivityAt=Date.now();
   clearTimeout(hvsIdleTimer);hvsIdleTimer=null;
   if(hvsAfkPromptShowing||!hvsMonitorAfk()||document.hidden)return;
-  hvsIdleTimer=setTimeout(hvsShowAfk,HVS_AFK_IDLE_TIMEOUT_MS);
+  hvsIdleTimer=setTimeout(hvsCheckAfkIdle,HVS_AFK_IDLE_TIMEOUT_MS);
+}
+// High-frequency input updates a timestamp rather than rebuilding a timer.
+function hvsCheckAfkIdle(){
+  hvsIdleTimer=null;
+  if(hvsAfkPromptShowing||!hvsMonitorAfk()||document.hidden)return;
+  const remaining=HVS_AFK_IDLE_TIMEOUT_MS-(Date.now()-hvsLastActivityAt);
+  if(remaining>0)hvsIdleTimer=setTimeout(hvsCheckAfkIdle,remaining);
+  else hvsShowAfk();
+}
+function hvsRecordAfkActivity(){
+  hvsLastActivityAt=Date.now();
+  if(!hvsAfkPromptShowing && hvsIdleTimer===null && hvsMonitorAfk() && !document.hidden)
+    hvsIdleTimer=setTimeout(hvsCheckAfkIdle,HVS_AFK_IDLE_TIMEOUT_MS);
 }
 function hvsShowAfk(){
   if(hvsAfkPromptShowing||!hvsMonitorAfk())return;
@@ -9132,9 +9161,45 @@ window.homeViewAfkDebug=()=>({idleMinutes:HVS_AFK_IDLE_TIMEOUT_MS/60000,countdow
 window.homeViewAfkTest=()=>hvsShowAfk();
 document.getElementById('hvsAfkContinue')?.addEventListener('click',()=>{hvsHideAfk();hvsResetAfkTimer();});
 document.getElementById('hvsAfkEnd')?.addEventListener('click',()=>{hvsHideAfk();window.homeViewEndSession?.('Your session has ended.');});
-['pointerdown','pointermove','keydown','wheel','touchstart','mousedown'].forEach(evt=>window.addEventListener(evt,()=>{if(!hvsAfkPromptShowing)hvsResetAfkTimer();},{passive:true}));
+['pointerdown','pointermove','keydown','wheel','touchstart','mousedown'].forEach(evt=>window.addEventListener(evt,hvsRecordAfkActivity,{passive:true}));
 document.addEventListener('visibilitychange',()=>{if(document.hidden){clearTimeout(hvsIdleTimer);hvsIdleTimer=null;}else hvsResetAfkTimer();});
+// Close transient UI and cancel callbacks before showing session status.
+window.homeViewCanOpenUi=()=>!window.homeViewSessionIntentional &&
+  !document.body.classList.contains('hvs-session-ended') &&
+  !document.body.classList.contains('hvs-session-ending');
+function hvsCloseSessionWindows(){
+  document.body.classList.add('hvs-session-ending');
+  window.homeViewPendingPropertyOffer=false;
+  window.homeViewHideLotLoading?.();
+  hvsHideAfk();
+  clearTimeout(hvsIdleTimer);hvsIdleTimer=null;
+  clearTimeout(hvsHowToCloseTimer);
+  hvsCloseHowTo();
+  if(hvsHowToWindow){hvsHowToWindow.hidden=true;hvsHowToWindow.classList.remove('is-visible');}
+  hvsClosePropertyIntroduction();hvsClosePropertyPrompt();hvsCloseLayoutRoomPrompt();
+  closeUpstairsLayoutDialog();hvsStopPersonalizeCheck();
+  hvsCloseCost();hvsClosePriceEditor();hvsCloseLogin();clearModes();
+  hvsMovieCancelTimers();hvsMovieRunId++;hvsMoviePhase='idle';
+  hvsMovieOverlay.classList.remove('is-active','hvs-cutscene-soft-reveal');
+  hvsMovieOverlay.setAttribute('aria-hidden','true');
+  hvsMovieBlack.classList.remove('is-opaque');hvsMovieLogo.classList.remove('is-visible');
+  hvsMovieSetControlsVisible(false);
+  clearTimeout(teleportStatusExitTimer);clearTimeout(teleportStatusHideTimer);teleportStatusSequence++;
+  clearTimeout(gameReadyExitTimer);clearTimeout(gameReadyHideTimer);
+  clearInterval(dotNavRetryTimer);dotNavRetryTimer=null;
+  for(const id of ['hvsAdminSettingsDialog','hvsAdminSwitchPrompt','hvsStandaloneImagePreview',
+                    'hvsAfkOverlay','hvsHowToWindow','teleportStatusOverlay','gameReadyOverlay']){
+    const el=document.getElementById(id);if(el){el.hidden=true;el.classList.remove('is-visible','is-entering','is-leaving');}
+  }
+  const shot=document.getElementById('screenshotOverlay');if(shot)shot.style.display='none';
+  document.body.classList.remove('hvs-property-offer-visible','hvs-layout-offer-visible',
+    'hvs-property-flight-active','hvs-movie-active','hvs-tutorial-open','hvs-login-exiting');
+  if(document.activeElement?.closest?.('#homeViewUI,[role="dialog"]') &&
+     !document.activeElement.closest('#hvsSessionScreen'))document.activeElement.blur();
+}
 window.homeViewDisplaySessionState=(intentional,message)=>{
+  window.homeViewDiagnostics?.stop(intentional?'Session ended':'Connection interrupted');
+  hvsCloseSessionWindows();
   window.HVSDesignRestore?.cancel?.();
   window.homeViewConnectionProblem=!intentional;
   hvsHideAfk();clearTimeout(hvsIdleTimer);hvsIdleTimer=null;
@@ -9150,6 +9215,7 @@ window.homeViewDisplaySessionState=(intentional,message)=>{
         ? 'Streaming session unavailable'
         : 'Connection to session was lost');
   document.body.classList.add('hvs-session-ended');
+  document.body.classList.remove('hvs-session-ending');
   hvsSessionScreen.hidden=false;
   // Muted inline playback is allowed on iOS; load it only when needed.
   if(hvsSessionBgVideo){
@@ -9165,7 +9231,7 @@ window.homeViewDisplaySessionState=(intentional,message)=>{
 window.homeViewClearConnectionNotice=()=>{
   if(window.homeViewSessionIntentional)return;
   window.homeViewConnectionProblem=false;
-  document.body.classList.remove('hvs-session-ended');
+  document.body.classList.remove('hvs-session-ended','hvs-session-ending');
   hvsSessionScreen.classList.remove('is-visible');
   hvsSessionScreen.hidden=true;
   if(hvsSessionBgVideo)hvsSessionBgVideo.pause();
@@ -9387,6 +9453,8 @@ window.addEventListener('resize',hvsUpdateHowToScale);
 // true  = connect to LOCAL Unreal Pixel Streaming signalling server
 // false = connect to LIVE Arcware cloud
 // ================================================================
+// Pre-Lux streaming baseline, October 30; current buyer features retained.
+const HVS_REQUESTED_MAX_FPS = 30; // Maximum on every platform, including fallbacks.
 const dev_mode = false; // true=local Epic Pixel Streaming, false=Arcware
 const dev_mobile_mode = false; // true=connect local stream by this page's LAN IP (phone testing); false=127.0.0.1 (PC testing)
 // Mobile mode only changes the local signalling URL. Live Arcware mode is unchanged.
@@ -9394,17 +9462,11 @@ const dev_mobile_mode = false; // true=connect local stream by this page's LAN I
 const DEV_SIGNAL_URL = dev_mobile_mode
   ? `ws://${window.location.hostname}` // Signalling server uses port 80, same as existing PC mode
   : 'ws://127.0.0.1'; // Original local desktop signalling address
-const DEV_UE_VERSION = 'ue5.8'; // Match Unreal Engine 5.8 for LOCAL testing only
+const DEV_UE_VERSION = 'ue5.8'; // Local SDK version; live Arcware still uses original Pixel Streaming v1
 // ================================================================
 
 
 // Mobile diagnostics are local-only and never appear in Arcware/live mode.
-// LOCAL UE 5.8 GPU SAFETY — automatic. Only change dev_mode above.
-// dev_mode=true: suspend all frontend-driven r.SetRes/native/SDK resize commands
-// while testing inside the Unreal Editor to avoid the observed D3D crash.
-// dev_mode=false: Arcware never uses this local safety flag. Its own streaming
-// settings below remain independent; no second switch to remember.
-const HVS_LOCAL_GPU_CRASH_SAFE_MODE = dev_mode;
 const MOBILE_DIAGNOSTICS = dev_mode && dev_mobile_mode;
 let mobileDiagnosticStep = 'Starting mobile test…';
 function mobileDevStatus(message, issue=false) {
@@ -9578,10 +9640,12 @@ function showLoadingLoop() {
 // Lot swaps share one transport hook in local and cloud modes. Show BEFORE
 // sending so even an immediate acknowledgement can dismiss the overlay.
 function sendUnreal(payload) {
+  if(window.homeViewSessionIntentional && payload?.end!=='session')return false;
   const lotChange=payload && ['one','two'].includes(payload.property);
   if(lotChange && window.homeViewLotIsLoading?.())return false;
   if(lotChange)window.homeViewShowLotLoading?.();
   const sent=hvsSendUnrealTransport(payload);
+  if(sent)window.homeViewDiagnostics?.note(payload);
   if(lotChange && !sent)window.homeViewHideLotLoading?.();
   return sent;
 }
@@ -9634,34 +9698,43 @@ let unrealIsReadyForResolution = false;
 let lastSentViewportResolution = '';
 let viewportSyncTimer = null;
 let viewportRetryTimers = [];
-
-// DESKTOP ONLY: LUX-proven, colour-neutral adaptive render size.
-// Proven 5.6 quality preset on UE 5.8: 30 FPS maximum on every platform.
-// NEVER request 60 FPS on any platform.
-const HVS_MOBILE_STREAM_TARGET = /Android|iPhone|iPod|iPad/i.test(navigator.userAgent) ||
-  window.matchMedia('(pointer:coarse)').matches;
-const HVS_REQUESTED_MAX_FPS = 30;
-const HVS_DESKTOP_RESOLUTION_TIERS = [1280, 1600, 1920]; // longest edge, never crop
-const HVS_DESKTOP_RESIZE_ENABLED = !/Android|iPhone|iPod|iPad/i.test(navigator.userAgent) &&
-  !window.matchMedia('(pointer:coarse)').matches;
-let hvsDesktopResolutionTier = 1; // 1600px balanced default on PC
-let hvsDesktopRtcStream = null;
-let hvsDesktopResolutionTransport = 'not sent';
-let hvsDesktopResolutionError = '';
-let hvsDesktopResolutionCheckToken = 0;
-// UE 5.8 MOBILE: use the same native Resolution.Width/Height transport that
-// is now working correctly on desktop. Keep the older Blueprint r.SetRes route
-// only as a bounded fallback if the decoded mobile aspect still does not move.
-let hvsMobileResolutionTransport = 'not sent';
-let hvsMobileResolutionCheckToken = 0;
-let hvsDesktopMonitorTimer = null;
-let hvsDesktopQualityPrevious = null;
-let hvsDesktopQualityStats = null;
-let hvsDesktopQualityBad = 0;
-let hvsDesktopQualityGood = 0;
-let hvsDesktopQualityLastChanged = 0;
-let hvsDesktopQualityLastReason = 'balanced startup';
-let hvsDesktopStatsUnavailable = false;
+// Mobile transport repair only: no desktop tiers or automatic reconnects.
+let hvsMobileCommandTransport='not sent';
+let hvsMobileRequestedSize='not sent';
+let hvsMobileResizeKey='';
+let hvsMobileResizeAttempts=0;
+let hvsMobileRateSentKbps=null;
+let hvsMobileRateSendOk=false;
+let hvsMobileLastAttemptAt=0;
+function hvsMobileRtcPeer(){
+  for(const stream of [window.homeViewArcwareAudioStream,localStream,application?.stream,application]){
+    const peer=stream?.webRtcController?.peerConnectionController?.peerConnection;
+    if(typeof peer?.getStats==='function')return peer;
+  }
+  return hvsRtcPeer();
+}
+function hvsSendMobileCommand(command){
+  const seen=new Set();
+  for(const [name,stream] of [['Arcware stream',window.homeViewArcwareAudioStream],['application stream',application?.stream],['application',application]]){
+    if(!stream||seen.has(stream)||typeof stream.emitCommand!=='function')continue;
+    seen.add(stream);
+    try{
+      const sent=stream.emitCommand(command)!==false;
+      hvsMobileCommandTransport=name+'.emitCommand'+(sent?'':' (not ready)');
+      return sent;
+    }catch(error){console.warn('[MOBILE COMMAND] Native command failed:',error?.message||error);}
+  }
+  hvsMobileCommandTransport='native Command unavailable';return false;
+}
+window.homeViewMobileTuningStatus=()=>({
+  mobile:HVS_QUALITY_MOBILE,requestedSize:hvsMobileRequestedSize,
+  desiredMaxKbps:HVS_QUALITY_LEVELS[hvsQualityIndex],lastSentMaxKbps:hvsMobileRateSentKbps,
+  bitrateRequestSent:hvsMobileRateSendOk,requestedFps:HVS_REQUESTED_MAX_FPS,
+  sdkMaxKbps:hvsQualityConfig?.getNumericSettingValue?.('WebRTCMaxBitrate')??null,
+  sdkFps:hvsQualityConfig?.getNumericSettingValue?.('WebRTCFPS')??null,
+  transport:hvsMobileCommandTransport,resizeAttempts:hvsMobileResizeAttempts,
+  note:'Requests are not acknowledgements; compare against received stream.'
+});
 
 function getStreamingViewportResolution() {
   const stage = document.getElementById('video-container');
@@ -9671,18 +9744,13 @@ function getStreamingViewportResolution() {
   const dpr = Math.max(1, window.devicePixelRatio || 1);
   let width = Math.round(cssWidth * dpr);
   let height = Math.round(cssHeight * dpr);
-  // Proven 5.6 mobile quality: 1440px maximum long edge, original aspect.
-  // Keep the UE 5.8 native resolution transport and desktop tiers unchanged.
-  if (window.matchMedia('(pointer:coarse)').matches) {
+  // Mobile resolution test: cap the LONGEST render edge at 1440 physical pixels.
+  // Preserve the browser aspect ratio, and never upscale a smaller viewport.
+  // No bitrate, FPS, decoder, desktop, reconnection or session changes.
+  if (HVS_QUALITY_MOBILE) {
     const factor = Math.min(1, 1440 / Math.max(width, height));
-    width = Math.round(width * factor);
-    height = Math.round(height * factor);
-  } else if (HVS_DESKTOP_RESIZE_ENABLED) {
-    const cap = HVS_DESKTOP_RESOLUTION_TIERS[hvsDesktopResolutionTier];
-    const factor = Math.min(1, cap / Math.max(width, height));
-    // Round to even dimensions for the H.264 video encoder.
-    width = Math.max(2, 2 * Math.round(width * factor / 2));
-    height = Math.max(2, 2 * Math.round(height * factor / 2));
+    width = Math.max(2,2*Math.floor(width * factor/2));
+    height = Math.max(2,2*Math.floor(height * factor/2));
   }
   return {width:Math.max(1,width), height:Math.max(1,height)};
 }
@@ -9693,175 +9761,29 @@ function hvsStreamAspectMismatched() {
   if (!stage?.clientWidth || !stage?.clientHeight) return false;
   return Math.abs(video.videoWidth/video.videoHeight - stage.clientWidth/stage.clientHeight) > .025;
 }
-// DESKTOP: use Unreal Pixel Streaming native Command transport (same as fixed LUX).
-// This bypasses the optional Blueprint console handler and works with Arcware
-// Dynamic Resolution OFF. Mobile continues using its original message path.
-function hvsSendNativeDesktopResolution(width, height) {
-  const command = {'Resolution.Width':width, 'Resolution.Height':height};
-  const targets = [
-    ['Arcware PixelStreaming',hvsDesktopRtcStream],
-    ['local PixelStreaming',localStream],
-    ['application stream',application?.stream],
-    ['application pixelStreaming',application?.pixelStreaming],
-    ['application controller',application?.webRtcController],
-    ['application',application]
-  ];
-  const seen=new Set();
-  let supported=false;
-  for (const [name, target] of targets) {
-    if (!target || seen.has(target)) continue;
-    seen.add(target);
-    if (typeof target.emitCommand !== 'function') continue;
-    supported=true;
-    try {
-      if (target.emitCommand(command) !== false)
-        return {sent:true, supported:true, via:name+'.emitCommand'};
-    } catch(err) {hvsDesktopResolutionError=err?.message||String(err);}
-  }
-  return {sent:false, supported, via:supported?'native data channel not ready':'native Command API unavailable'};
-}
-function hvsSendLegacyDesktopResolution(key, reason='UE 5.8 aspect fallback') {
-  if (!HVS_DESKTOP_RESIZE_ENABLED || document.hidden || window.homeViewSessionIntentional ||
-      homeViewTeardownStarted || hvsScreenshotProtected()) return false;
-  const command=`r.SetRes ${key}w`;
-  const sent=sendUnreal({console:true,Command:command});
-  if(sent){
-    hvsDesktopResolutionTransport='native Command + Blueprint r.SetRes fallback';
-    console.info(`[HVS DESKTOP] ${reason}: ${command}`);
-    return true;
-  }
-  console.warn('[HVS DESKTOP] Blueprint resolution fallback could not be sent:',reason,command);
-  return false;
-}
-function hvsVerifyDesktopAspect(key) {
-  // Arcware: do not initiate secondary Blueprint r.SetRes retries after a native
-  // command. UE 5.8 + H.264/NVENC can be destabilized by repeated reconfiguration.
-  // The live stream already uses the native resize transport above.
-  if (!dev_mode) return;
-  const token=++hvsDesktopResolutionCheckToken;
-
-  // UE 5.8 / Arcware can expose emitCommand and accept the descriptor while the
-  // decoded track remains at the launch aspect. If that happens, use Home View's
-  // already-proven Blueprint console route with the SAME target resolution.
-  setTimeout(()=>{
-    if(token!==hvsDesktopResolutionCheckToken || !HVS_DESKTOP_RESIZE_ENABLED ||
-       document.hidden || !levelReady || key!==lastSentViewportResolution ||
-       window.homeViewSessionIntentional || hvsScreenshotProtected())return;
-    if(hvsStreamAspectMismatched()){
-      console.warn('[HVS DESKTOP] Native resize did not change the decoded aspect; using Blueprint fallback.',
-        window.homeViewDesktopResolutionStatus?.());
-      hvsSendLegacyDesktopResolution(key,'desktop aspect mismatch');
-    }
-  },1700);
-
-  // One bounded retry only. Never loop or create a second stream/session.
-  setTimeout(()=>{
-    if(token!==hvsDesktopResolutionCheckToken || document.hidden ||
-       key!==lastSentViewportResolution || window.homeViewSessionIntentional ||
-       hvsScreenshotProtected())return;
-    if(hvsStreamAspectMismatched()){
-      hvsSendLegacyDesktopResolution(key,'desktop aspect mismatch final retry');
-      console.warn('[HVS DESKTOP] Stream still has the wrong aspect after native + Blueprint resize.',
-        window.homeViewDesktopResolutionStatus?.());
-    }
-  },4300);
-}
-
-function hvsVerifyMobileAspect(key) {
-  // Arcware: no extra r.SetRes fallback or synthetic resize-event retry on live
-  // mobile. One native resize request per real viewport size is retained.
-  if (!dev_mode || HVS_DESKTOP_RESIZE_ENABLED) return;
-  const token=++hvsMobileResolutionCheckToken;
-
-  // Give UE/Arcware time to replace the decoded track. If it still presents
-  // the old 16:9 frame, send the SAME target once through the old Blueprint
-  // route. This keeps rotation/startup recovery bounded and predictable.
-  setTimeout(()=>{
-    if(token!==hvsMobileResolutionCheckToken || document.hidden || !levelReady ||
-       key!==lastSentViewportResolution || window.homeViewSessionIntentional ||
-       homeViewTeardownStarted || hvsScreenshotProtected()) return;
-    if(hvsStreamAspectMismatched()){
-      const legacy=`r.SetRes ${key}w`;
-      if(sendUnreal({console:true,Command:legacy})){
-        hvsMobileResolutionTransport += ' + Blueprint aspect fallback';
-        console.warn('[HVS MOBILE] Native resize still mismatched; sent bounded Blueprint fallback:',legacy);
-      }
-    }
-  },1400);
-
-  // One final player-layout refresh only. No reconnect and no new cloud session.
-  setTimeout(()=>{
-    if(token!==hvsMobileResolutionCheckToken || document.hidden || !levelReady ||
-       key!==lastSentViewportResolution || window.homeViewSessionIntentional ||
-       homeViewTeardownStarted || hvsScreenshotProtected()) return;
-    if(hvsStreamAspectMismatched()){
-      window.dispatchEvent(new Event('resize'));
-      try {window.visualViewport?.dispatchEvent(new Event('resize'));}catch(_){}
-      console.warn('[HVS MOBILE] Stream aspect still mismatched after native + fallback.',
-        window.homeViewMobileStreamStatus?.());
-    }
-  },3200);
-}
-
-function sendViewportResolutionToUnreal(reason='viewport', force=false, desktopAspectRetry=false) {
-  // Isolate the D3D device-removed crash from any frontend r.SetRes/native resize.
-  if (dev_mode && HVS_LOCAL_GPU_CRASH_SAFE_MODE) return false;
+function sendViewportResolutionToUnreal(reason='viewport', force=false) {
   if (screenshotRequestInFlight || screenshotBlob || document.hidden ||
       !unrealIsReadyForResolution || !application) return;
   const {width,height} = getStreamingViewportResolution();
   const key = `${width}x${height}`;
-  // In live Arcware mode, a duplicate *forced* resize is still a duplicate.
-  // Do not reconfigure NVENC repeatedly for the same geometry. A real phone
-  // rotation, window-size change, or desktop tier change has a NEW key and
-  // continues to work normally.
-  if ((!dev_mode || !force) && key === lastSentViewportResolution) return false;
-  if (HVS_DESKTOP_RESIZE_ENABLED) {
-    if (hvsScreenshotProtected() || window.homeViewSessionIntentional ||
-        homeViewTeardownStarted) return false;
-    let result=hvsSendNativeDesktopResolution(width,height);
-    // Preserve the old Blueprint path when no native Command API exists.
-    // If native transport reports success but UE 5.8 keeps the wrong decoded
-    // aspect, hvsVerifyDesktopAspect() performs a bounded same-resolution fallback.
-    if (!result.sent && !result.supported) {
-      const legacy=`r.SetRes ${key}w`;
-      result={sent:sendUnreal({console:true,Command:legacy}),
-        via:'legacy Blueprint fallback (not verified)'};
-    }
-    hvsDesktopResolutionTransport=result.via;
-    if (!result.sent) {
-      console.warn('[HVS DESKTOP] Resolution command not ready:',reason,key,result.via);
-      return false;
-    }
-    lastSentViewportResolution=key;
-    console.info(`[HVS DESKTOP] ${reason}: ${key} via ${result.via}`);
-    if (!desktopAspectRetry) hvsVerifyDesktopAspect(key);
-    return true;
+  if (!dev_mode && HVS_QUALITY_MOBILE) {
+    hvsMobileRequestedSize=key;
+    if(hvsMobileResizeKey!==key){hvsMobileResizeKey=key;hvsMobileResizeAttempts=0;}
+    const video=document.querySelector('#video-container video');
+    const matched=video?.videoWidth && Math.abs(video.videoWidth-width)<=2 && Math.abs(video.videoHeight-height)<=2;
+    if(key===lastSentViewportResolution && (matched || !force))return false;
+    // At most three startup attempts per geometry. A real rotation gets a new key.
+    if(hvsMobileResizeAttempts>=3)return false;
+    const sent=hvsSendMobileCommand({'Resolution.Width':width,'Resolution.Height':height});
+    if(sent){lastSentViewportResolution=key;hvsMobileResizeAttempts++;}
+    return sent;
   }
-  // MOBILE / UE 5.8:
-  // Use the same native Pixel Streaming Resolution.Width/Height command that
-  // is now confirmed working on desktop. This avoids relying on an older
-  // Blueprint console path that can leave the mobile stream stuck at 16:9.
-  let mobileResult = hvsSendNativeDesktopResolution(width,height);
-  if (mobileResult.sent) {
-    hvsMobileResolutionTransport = mobileResult.via;
-    lastSentViewportResolution = key;
-    console.info(`[HVS MOBILE] ${reason}: ${key} via ${mobileResult.via}`);
-    hvsVerifyMobileAspect(key);
-    return true;
-  }
-
-  // If the native API is unavailable/not ready, preserve the proven legacy
-  // Home View route. This is ONE fallback path, not a competing continuous loop.
+  if (!force && key === lastSentViewportResolution) return;
   const command = `r.SetRes ${key}w`;
   if (sendUnreal({console:true, Command:command})) {
-    hvsMobileResolutionTransport = 'Blueprint r.SetRes fallback';
     lastSentViewportResolution = key;
-    console.info(`[HVS MOBILE] ${reason}: ${command}`);
-    hvsVerifyMobileAspect(key);
-    return true;
+    console.info(`[STREAM] ${reason}: ${command}`);
   }
-  hvsMobileResolutionTransport = mobileResult.via || 'not sent';
-  return false;
 }
 // LUX-style one-shot layout refresh. A fresh Pixel Streaming connection can
 // start with a 16:9 *decoded track* despite the phone already being landscape.
@@ -9990,148 +9912,6 @@ function startViewportResolutionSync() {
 }
 
 // ============================================================================
-// HVS DESKTOP ONLY: LUX's successful adaptive *resolution*, NOT adaptive bitrate.
-// Starts at 1600px longest edge, downshifts to 1280px on congestion, cautiously
-// recovers to 1920px. Never alters colour encoding, codec, browser video fit or
-// mobile's bitrate/rotation/recovery logic. Uses the EXISTING Arcware session.
-// ============================================================================
-function hvsDesktopQualityAllowed() {
-  return HVS_DESKTOP_RESIZE_ENABLED && !!application && !document.hidden &&
-    !window.homeViewSessionIntentional && !homeViewTeardownStarted &&
-    !window.homeViewConnectionProblem && !hvsScreenshotProtected() &&
-    window.homeViewLevelReady === true && !hvsRecoveryInProgress;
-}
-function hvsSwitchDesktopResolutionTier(next,reason) {
-  if (!hvsDesktopQualityAllowed() || next<0 ||
-      next>=HVS_DESKTOP_RESOLUTION_TIERS.length || next===hvsDesktopResolutionTier)return false;
-  const previous=hvsDesktopResolutionTier;
-  hvsDesktopResolutionTier=next;
-  if (!sendViewportResolutionToUnreal('desktop adaptive: '+reason,true)) {
-    hvsDesktopResolutionTier=previous;
-    return false;
-  }
-  hvsDesktopQualityLastChanged=performance.now();
-  hvsDesktopQualityLastReason=reason;
-  hvsDesktopQualityBad=hvsDesktopQualityGood=0;
-  console.info('[HVS DESKTOP] Requested max-long-edge',HVS_DESKTOP_RESOLUTION_TIERS[next],
-    'pixels for',reason,'(bitrate and colour settings unchanged)');
-  return true;
-}
-async function hvsMonitorDesktopResolution() {
-  if (!hvsDesktopQualityAllowed()) {
-    hvsDesktopQualityPrevious=null;
-    hvsDesktopQualityBad=hvsDesktopQualityGood=0;
-    return;
-  }
-  const pc=hvsRtcPeer();
-  if (typeof pc?.getStats !== 'function') {hvsDesktopStatsUnavailable=true;return;}
-  try {
-    const report=await pc.getStats();
-    if (!hvsDesktopQualityAllowed())return;
-    let inbound=null,pair=null;
-    report.forEach(row=>{
-      if (row.type==='inbound-rtp' && !row.isRemote &&
-          (row.kind==='video'||row.mediaType==='video')) inbound=row;
-      if (row.type==='candidate-pair' && row.state==='succeeded' &&
-          (row.nominated||row.selected)) pair=row;
-    });
-    if(!inbound){hvsDesktopStatsUnavailable=true;return;}
-    hvsDesktopStatsUnavailable=false;
-    const current={
-      timestamp:Number(inbound.timestamp)||Date.now(),
-      bytes:Number(inbound.bytesReceived)||0,
-      received:Number(inbound.packetsReceived)||0,
-      lost:Number(inbound.packetsLost)||0,
-      decoded:Number(inbound.framesDecoded)||0,
-      freezes:Number(inbound.freezeCount)||0,
-      jitterDelay:Number(inbound.jitterBufferDelay)||0,
-      jitterCount:Number(inbound.jitterBufferEmittedCount)||0,
-      rtt:typeof pair?.currentRoundTripTime==='number'?pair.currentRoundTripTime:null
-    };
-    if(!hvsDesktopQualityPrevious){hvsDesktopQualityPrevious=current;return;}
-    const prev=hvsDesktopQualityPrevious;
-    hvsDesktopQualityPrevious=current;
-    const seconds=(current.timestamp-prev.timestamp)/1000;
-    if(seconds<2||seconds>20)return;
-    const received=Math.max(0,current.received-prev.received);
-    const lost=Math.max(0,current.lost-prev.lost);
-    const total=received+lost;
-    const packetLoss=total>=30?lost/total:null;
-    const decodedFps=Math.max(0,current.decoded-prev.decoded)/seconds;
-    const freezes=Math.max(0,current.freezes-prev.freezes);
-    const emitted=current.jitterCount-prev.jitterCount;
-    const jitterSeconds=emitted>0?
-      Math.max(0,current.jitterDelay-prev.jitterDelay)/emitted:null;
-    const kbps=Math.max(0,current.bytes-prev.bytes)*8/seconds/1000;
-    hvsDesktopQualityStats={
-      receivedKbps:Math.round(kbps),
-      decodedFps:Math.round(decodedFps*10)/10,
-      packetLossPercent:packetLoss===null?null:Math.round(packetLoss*10000)/100,
-      rttMs:current.rtt===null?null:Math.round(current.rtt*1000),
-      jitterBufferMs:jitterSeconds===null?null:Math.round(jitterSeconds*1000),
-      newFreezes:freezes
-    };
-    // Low fps alone can mean Unreal GPU load, not network congestion.
-    // Never infer weak Wi-Fi from fps alone; never touch encoder bitrate.
-    const bad=(packetLoss!==null&&packetLoss>=.025)||
-      (current.rtt!==null&&current.rtt>=.38)||
-      (jitterSeconds!==null&&jitterSeconds>=.18)||freezes>0;
-    const severe=(packetLoss!==null&&packetLoss>=.10)||
-      freezes>=2||(current.rtt!==null&&current.rtt>=.75);
-    const good=(packetLoss!==null&&packetLoss<.006)&&
-      (current.rtt===null||current.rtt<.20)&&
-      (jitterSeconds===null||jitterSeconds<.09)&&
-      freezes===0&&decodedFps>=26;
-    if(bad){hvsDesktopQualityBad++;hvsDesktopQualityGood=0;}
-    else if(good){hvsDesktopQualityGood++;hvsDesktopQualityBad=0;}
-    else{hvsDesktopQualityBad=hvsDesktopQualityGood=0;}
-    if(performance.now()-hvsDesktopQualityLastChanged<20000)return;
-    if((severe||hvsDesktopQualityBad>=2)&&hvsDesktopResolutionTier>0)
-      hvsSwitchDesktopResolutionTier(hvsDesktopResolutionTier-1,'congested network');
-    else if(hvsDesktopQualityGood>=12&&hvsDesktopResolutionTier<HVS_DESKTOP_RESOLUTION_TIERS.length-1)
-      hvsSwitchDesktopResolutionTier(hvsDesktopResolutionTier+1,'stable network');
-  } catch(err) {
-    hvsDesktopStatsUnavailable=true;
-    console.debug('[HVS DESKTOP] WebRTC stats unavailable; keeping current resolution tier:',err?.message||err);
-  }
-}
-function hvsStartDesktopAdaptiveResolution() {
-  if (dev_mode && HVS_LOCAL_GPU_CRASH_SAFE_MODE) return;
-  if(!HVS_DESKTOP_RESIZE_ENABLED||hvsDesktopMonitorTimer)return;
-  hvsDesktopMonitorTimer=setInterval(hvsMonitorDesktopResolution,5000);
-}
-function hvsStopDesktopAdaptiveResolution() {
-  clearInterval(hvsDesktopMonitorTimer);
-  hvsDesktopMonitorTimer=null;
-  hvsDesktopQualityPrevious=null;
-}
-window.homeViewDesktopResolutionStatus=()=>{
-  const video=document.querySelector('#video-container video');
-  const stage=document.getElementById('video-container');
-  const target=getStreamingViewportResolution();
-  return {
-    mode:dev_mode?'LOCAL':'ARCWARE',
-    device:HVS_DESKTOP_RESIZE_ENABLED?'desktop adaptive':'mobile (original, unchanged)',
-    nativeDesktopResize:HVS_DESKTOP_RESIZE_ENABLED,
-    fpsRequestedMax:HVS_REQUESTED_MAX_FPS,
-    requestedPixels:target.width+'x'+target.height,
-    lastSentPixels:lastSentViewportResolution,
-    streamPixels:video?.videoWidth?video.videoWidth+'x'+video.videoHeight:'waiting for video',
-    viewportPixels:stage?stage.clientWidth+'x'+stage.clientHeight:'unknown',
-    aspectMismatch:video?.videoWidth? hvsStreamAspectMismatched():null,
-    transport:hvsDesktopResolutionTransport,
-    transportError:hvsDesktopResolutionError,
-    tiers:HVS_DESKTOP_RESOLUTION_TIERS.slice(),
-    currentMaxLongEdge:HVS_DESKTOP_RESOLUTION_TIERS[hvsDesktopResolutionTier],
-    monitoring:!!hvsDesktopMonitorTimer,
-    statsUnavailable:hvsDesktopStatsUnavailable,
-    networkSample:hvsDesktopQualityStats,
-    lastTierChange:hvsDesktopQualityLastReason,
-    note:'Desktop: native Pixel Streaming Command, adaptive render resolution, original Arcware bitrate/codec; mobile: unchanged quality settings.'
-  };
-};
-
-// ============================================================================
 // HVS_STREAM_RECOVERY: Mobile Save/Share can suspend WebRTC on iOS/Android.
 // "video.play()" only resumes HTML playback; it cannot heal a failed RTC peer.
 // Watch actual decoded video frames and attempt one SDK-level reconnect ONLY
@@ -10179,6 +9959,7 @@ function hvsRegisterVideoForRecovery(video){
   if(info.supportsFrames){
     const onFrame=()=>{
       info.lastFrameAt=Date.now();
+      window.homeViewDiagnostics?.frame(video,performance.now());
       hvsRecoveryLastFrameAt=info.lastFrameAt;
       hvsRecoveryLastFrameVideo=video;
       if(hvsRecoveryInProgress)hvsRecoverySucceeded('new video frames');
@@ -10393,12 +10174,14 @@ for (const { id, messageKey } of cameraSliderBindings) {
 }
 
 function receiveUnrealResponse(response) {
+  if(window.homeViewSessionIntentional || homeViewTeardownStarted)return;
   if (MOBILE_DIAGNOSTICS && !levelReady) mobileDevStatus('Received message from Unreal');
   let data = response;
   try { if (typeof response === 'string') data = JSON.parse(response); } catch (_) {}
   // Some older Unreal builds return nested serialized strings.
   try { if (typeof data === 'string') data = JSON.parse(data); } catch (_) {}
   window.homeViewReceiveLotStatus?.(data);
+  window.homeViewDiagnostics?.note(data);
   // Character location and yaw arrive each Tick. Handle them without console
   // spam, and without ever interfering with room/finish/game messages.
   if (window.homeViewHandleMapResponse?.(data) === true) return;
@@ -10596,11 +10379,12 @@ function hvsCompleteGameReveal() {
   setTimeout(()=>window.homeViewShowGameReady?.(),270);
   ui.classList.add('is-ready');
   window.homeViewLevelReady=true;
-  // Re-apply the mobile startup ceiling now that the WebRTC player is definitely
-  // alive. InitialSettings sends it during construction; this confirms it again
-  // without reconnecting or creating a second Arcware session.
-  if (typeof HVS_QUALITY_MOBILE!=='undefined' && HVS_QUALITY_MOBILE)
-    hvsApplyBitrateHint?.();
+  if(!dev_mode && HVS_QUALITY_MOBILE){
+    [0,1200,3500].forEach(ms=>setTimeout(()=>{
+      if(hvsQualityAllowed())hvsApplyBitrateHint();
+    },ms));
+  }
+  window.homeViewDiagnostics?.start();
   window.homeViewOnLevelReadyForAfk?.();
   document.body.classList.add('hvs-audio-ready');
   requestAnimationFrame(()=>{
@@ -10891,11 +10675,13 @@ let localStyles = null;
 // cloud-controlled encoder settings can override it. No resolution changes.
 const HVS_QUALITY_MOBILE = /Android|iPhone|iPod|iPad/i.test(navigator.userAgent) ||
   (window.matchMedia('(pointer:coarse)').matches && Math.min(innerWidth,innerHeight)<900);
-// Proven 5.6 mobile quality on UE 5.8: start at 2.0 Mbps; adapt within
-// 1.3–6.0 Mbps using the same 30 FPS thresholds and recovery hysteresis.
-// Desktop bitrate/colour settings are unchanged. Cloud may override hints.
-const HVS_QUALITY_LEVELS = HVS_QUALITY_MOBILE ? [1300,1600,2000,2800,4000,6000] : [5000,7000,10000,14000];
-let hvsQualityIndex=HVS_QUALITY_MOBILE?2:0;
+// Mobile: WebRTC owns bandwidth adaptation beneath a 6 Mbps ceiling.
+// This is a maximum, not a forced sending rate; minimum bitrate stays zero.
+// Do not interpret low incoming FPS as network congestion: Unreal/encoder
+// stalls can cause it too. The former FPS ladder could stick at 1.3 Mbps.
+// Preserve the existing desktop controller and bitrate tiers.
+const HVS_QUALITY_LEVELS = HVS_QUALITY_MOBILE ? [6000] : [5000,7000,10000,14000];
+let hvsQualityIndex=0;
 let hvsQualityConfig=null;
 let hvsQualityTimer=null;
 let hvsQualityPrevious=null;
@@ -10908,18 +10694,37 @@ function hvsQualityAllowed(){return !dev_mode && !window.homeViewSessionIntentio
 function hvsApplyBitrateHint(){
   if(!hvsQualityAllowed())return false;
   const limit=HVS_QUALITY_LEVELS[hvsQualityIndex];
-  try {
-    // ArcwareInit returns Config, forwarded to Epic Pixel Streaming.
-    if(typeof hvsQualityConfig?.setNumericSetting === 'function'){
+  try{
+    if(typeof hvsQualityConfig?.setNumericSetting==='function'){
       hvsQualityConfig.setNumericSetting('WebRTCMaxBitrate',limit);
-      console.info('[HOME VIEW QUALITY] Requested WebRTC max bitrate (kbps):',limit);
-      return true;
+      if(HVS_QUALITY_MOBILE){
+        hvsQualityConfig.setNumericSetting('WebRTCMinBitrate',0);
+        hvsQualityConfig.setNumericSetting('WebRTCFPS',HVS_REQUESTED_MAX_FPS);
+      }
     }
-  }catch(err){console.warn('[HOME VIEW QUALITY] SDK refused bitrate change:',err);}
-  return false;
+    if(HVS_QUALITY_MOBILE){
+      hvsMobileLastAttemptAt=Date.now();
+      // SDK numeric settings use kbps; the native UE Command uses bits/second.
+      hvsMobileRateSendOk=hvsSendMobileCommand({'WebRTC.MaxBitrate':limit*1000,
+        'WebRTC.MinBitrate':0,'WebRTC.Fps':HVS_REQUESTED_MAX_FPS});
+      if(hvsMobileRateSendOk)hvsMobileRateSentKbps=limit;
+      return hvsMobileRateSendOk;
+    }
+    return typeof hvsQualityConfig?.setNumericSetting==='function';
+  }catch(error){console.warn('[HOME VIEW QUALITY] Request failed:',error);return false;}
 }
 async function hvsMonitorQuality(){
   if(!hvsQualityAllowed() || window.homeViewConnectionProblem || hvsRecoveryInProgress)return;
+  if(HVS_QUALITY_MOBILE && Date.now()-hvsMobileLastAttemptAt>=5000){
+    const sdkMax=hvsQualityConfig?.getNumericSettingValue?.('WebRTCMaxBitrate');
+    const sdkFps=hvsQualityConfig?.getNumericSettingValue?.('WebRTCFPS');
+    if(!hvsMobileRateSendOk || sdkMax!==HVS_QUALITY_LEVELS[hvsQualityIndex] || sdkFps!==HVS_REQUESTED_MAX_FPS)
+      hvsApplyBitrateHint();
+  }
+  // Native WebRTC adapts the mobile stream to available network bandwidth.
+  // Only reassert the configured ceiling above if the server overwrites it;
+  // no second mobile controller, FPS-triggered reductions, or extra RTC poll.
+  if(HVS_QUALITY_MOBILE)return;
   const pc=hvsRtcPeer();
   if(!pc?.getStats)return;
   try {
@@ -10946,23 +10751,16 @@ async function hvsMonitorQuality(){
         const rtt=typeof pair?.currentRoundTripTime==='number'?pair.currentRoundTripTime:null;
         hvsQualityMeasured={kbps:Math.round(kbps),fps:Math.round(fps*10)/10,loss:lossRatio,rtt,
           ceilingKbps:HVS_QUALITY_LEVELS[hvsQualityIndex]};
-        // Mobile needs earlier protection from jitter; desktop thresholds
-        // remain exactly the same as the successfully tested build.
-        const bad=HVS_QUALITY_MOBILE
-          ? ((fps<25 && kbps>180) || lossRatio>.025 || (rtt!==null&&rtt>.28))
-          : ((fps<17 && kbps>180) || lossRatio>.075 || (rtt!==null&&rtt>.48));
-        const good=HVS_QUALITY_MOBILE
-          ? (fps>=28 && lossRatio<.010 && (rtt===null||rtt<.18))
-          : (fps>=24 && lossRatio<.018 && (rtt===null||rtt<.22));
-        const severe=HVS_QUALITY_MOBILE &&
-          ((fps<15 && kbps>180) || lossRatio>.08);
+        // Desktop policy is unchanged. Mobile uses native adaptation above.
+        const bad=(fps<17 && kbps>180) || lossRatio>.075 || (rtt!==null&&rtt>.48);
+        const good=fps>=24 && lossRatio<.018 && (rtt===null||rtt<.22);
         if(bad){hvsQualityBad++;hvsQualityGood=0;}
         else if(good){hvsQualityGood++;hvsQualityBad=0;}
         else{hvsQualityBad=0;hvsQualityGood=0;}
         // Hysteresis prevents bitrate oscillation. Loss/RTT are hints, not guarantees.
-        if((hvsQualityBad>=2 || severe) && hvsQualityIndex>0){
+        if(hvsQualityBad>=2 && hvsQualityIndex>0){
           hvsQualityIndex--;hvsQualityBad=0;hvsQualityGood=0;hvsApplyBitrateHint();
-        } else if(hvsQualityGood>=(HVS_QUALITY_MOBILE?7:4) && hvsQualityIndex<HVS_QUALITY_LEVELS.length-1){
+        } else if(hvsQualityGood>=4 && hvsQualityIndex<HVS_QUALITY_LEVELS.length-1){
           hvsQualityIndex++;hvsQualityGood=0;hvsQualityBad=0;hvsApplyBitrateHint();
         }
       }
@@ -10972,87 +10770,11 @@ async function hvsMonitorQuality(){
 }
 window.homeViewStopAdaptiveQuality=()=>{
   clearInterval(hvsQualityTimer);hvsQualityTimer=null;hvsQualityConfig=null;
-  hvsStopDesktopAdaptiveResolution();
 };
 window.homeViewQualityStatus=()=>({mobile:HVS_QUALITY_MOBILE,
-  requestedMaxKbps:HVS_QUALITY_MOBILE?HVS_QUALITY_LEVELS[hvsQualityIndex]:null,
-  telemetry:HVS_QUALITY_MOBILE?hvsQualityMeasured:null,active:!!hvsQualityTimer,
-  caveat:HVS_QUALITY_MOBILE?'Arcware/cloud may override WebRTC bitrate settings':
-    'Desktop: original Arcware bitrate/codec, no frontend bitrate override. Check homeViewDesktopResolutionStatus() for desktop adaptive resolution.'});
-
-// TEMPORARY LIVE MOBILE TEST HUD.
-// Set false after the UE 5.8 live test proves requested === decoded aspect.
-const HVS_LIVE_MOBILE_DIAGNOSTICS = false;
-let hvsLiveMobileDiagnosticTimer = null;
-
-window.homeViewMobileStreamStatus=()=>{
-  const stage=document.getElementById('video-container');
-  const video=document.querySelector('#video-container video');
-  const target=getStreamingViewportResolution();
-  const vw=stage?.clientWidth||innerWidth;
-  const vh=stage?.clientHeight||innerHeight;
-  const decoded=video?.videoWidth&&video?.videoHeight
-    ? `${video.videoWidth}x${video.videoHeight}` : 'waiting';
-  const viewport=`${Math.round(vw)}x${Math.round(vh)}`;
-  const targetText=`${target.width}x${target.height}`;
-  const actualAspect=video?.videoWidth&&video?.videoHeight ? video.videoWidth/video.videoHeight : 0;
-  const viewportAspect=vw&&vh ? vw/vh : 0;
-  const mismatch=Boolean(actualAspect && viewportAspect &&
-    Math.abs(actualAspect-viewportAspect)>.025);
-  return {
-    target:targetText,
-    requested:lastSentViewportResolution||'not sent',
-    decoded,
-    viewport,
-    dpr:Math.round((devicePixelRatio||1)*100)/100,
-    aspect:mismatch?'MISMATCH':'MATCH',
-    transport:hvsMobileResolutionTransport,
-    ceilingKbps:HVS_QUALITY_LEVELS[hvsQualityIndex],
-    measured:hvsQualityMeasured
-  };
-};
-
-function hvsUpdateLiveMobileDiagnostics(){
-  if(!HVS_LIVE_MOBILE_DIAGNOSTICS || !HVS_QUALITY_MOBILE || dev_mode) return;
-  let panel=document.getElementById('hvs-live-mobile-diagnostics');
-  if(!panel){
-    panel=document.createElement('div');
-    panel.id='hvs-live-mobile-diagnostics';
-    panel.style.cssText=[
-      'position:fixed',
-      'left:max(7px,env(safe-area-inset-left,0px))',
-      'bottom:max(7px,env(safe-area-inset-bottom,0px))',
-      'z-index:20000',
-      'max-width:min(420px,74vw)',
-      'padding:7px 9px',
-      'border-radius:8px',
-      'border:1px solid rgba(255,255,255,.28)',
-      'background:rgba(0,0,0,.72)',
-      'color:#fff',
-      'font:600 9px/1.25 "HomeView Myriad",Arial,sans-serif',
-      'letter-spacing:.015em',
-      'white-space:pre-line',
-      'pointer-events:none',
-      'user-select:none',
-      '-webkit-user-select:none'
-    ].join(';');
-    document.body.appendChild(panel);
-  }
-  const s=window.homeViewMobileStreamStatus();
-  const m=s.measured;
-  panel.style.borderColor=s.aspect==='MATCH'?'rgba(111,255,146,.65)':'rgba(255,126,77,.82)';
-  panel.textContent=
-    `UE5.8 MOBILE STREAM TEST\n`+
-    `target ${s.target} · sent ${s.requested}\n`+
-    `decoded ${s.decoded} · viewport ${s.viewport} · DPR ${s.dpr}\n`+
-    `aspect ${s.aspect} · transport ${s.transport}\n`+
-    `cap ${s.ceilingKbps} kbps`+
-    (m?` · recv ${m.kbps} kbps · ${m.fps} fps · loss ${(m.loss*100).toFixed(1)}%`:'');
-}
-if(HVS_LIVE_MOBILE_DIAGNOSTICS && HVS_QUALITY_MOBILE && !dev_mode){
-  hvsUpdateLiveMobileDiagnostics();
-  hvsLiveMobileDiagnosticTimer=setInterval(hvsUpdateLiveMobileDiagnostics,800);
-}
+  requestedMaxKbps:HVS_QUALITY_LEVELS[hvsQualityIndex],
+  telemetry:hvsQualityMeasured,active:!!hvsQualityTimer,
+  caveat:'Arcware/cloud may override WebRTC bitrate settings'});
 function hvsStartAdaptiveQuality(config){
   if(window.homeViewSessionIntentional)return;
   hvsQualityConfig=config;
@@ -11096,6 +10818,8 @@ function homeViewDetachStream(){
   try {document.getElementById('video-container')?.replaceChildren();}catch(_){}
 }
 window.homeViewEndSession=async(message='Your session has ended.',options={})=>{
+  window.homeViewDiagnostics?.stop('Session ended');
+  hvsCloseSessionWindows();
   window.homeViewHideLotLoading?.();
   if(homeViewTeardownStarted)return;
   window.HVSDesignRestore?.cancel?.();
@@ -11229,7 +10953,7 @@ async function initialiseEpicLocalPlayer() {
       AutoConnect:true,
       AutoPlayVideo:true,
       StartVideoMuted:true,
-      MatchViewportRes:(dev_mode && HVS_LOCAL_GPU_CRASH_SAFE_MODE) ? false : !HVS_DESKTOP_RESIZE_ENABLED, // no auto resolution commands in local crash-isolation mode
+      MatchViewportRes:true,
       WebRTCFPS:HVS_REQUESTED_MAX_FPS,
       HoveringMouse:true,
       FakeMouseWithTouches:true,
@@ -11264,10 +10988,166 @@ async function initialiseEpicLocalPlayer() {
   root.style.margin = '0';
   root.style.padding = '0';
   configureStreamingInputTarget(root);
-  hvsStartDesktopAdaptiveResolution();
   console.info('[DEV MODE] Local Epic player mounted; waiting for Unreal Game:Loaded.');
   mobileDevStatus('Player mounted; waiting for Unreal Game Loaded');
   if (MOBILE_DIAGNOSTICS) setTimeout(() => { if (!levelReady && !loadRequested) mobileDevStatus('Still waiting for Game Loaded. Check signaling / only one player open.',true); else if (!levelReady) mobileDevStatus('Load requested; waiting for HomeViewLevelLoaded',true); }, 12000);
+}
+
+// HVS_DIAGNOSTICS_V1: read-only, enabled ONLY by ?diagnostics=1.
+// Does not send Unreal commands, alter settings, reconnect, or upload results.
+if(new URLSearchParams(location.search).get('diagnostics')==='1'){
+  class HvsDiagnosticMetrics{
+    constructor(){
+      this.previous=null;this.peer=null;this.samples=[];this.events=[];this.resolutions=[];
+      this.seconds=0;this.frames=0;this.arrivedFrames=0;this.arrivedSeconds=0;this.videoBytes=0;this.byteSeconds=0;this.minFps=null;this.received=0;this.lost=0;
+      this.rttSum=0;this.rttSeconds=0;this.maxRtt=null;this.decodeSeconds=0;this.decodeFrames=0;
+      this.jitterSeconds=0;this.jitterFrames=0;this.nativeCount=null;this.nativeSeconds=null;
+      this.gaps=[];this.gapCount=0;this.gapSeconds=0;this.maxGap=0;this.video=null;this.frameAt=null;
+      this.started=Date.now();this.errors=0;this.noPeer=0;this.unavailable=0;this.skipped=0;
+    }
+    note(kind){this.events.push({at:Math.round((Date.now()-this.started)/1000),kind});if(this.events.length>80)this.events.shift();}
+    reset(){this.previous=null;this.frameAt=null;}
+    frame(video,now){
+      if(this.video!==video){this.video=video;this.frameAt=null;}
+      if(this.frameAt!==null && now-this.frameAt>=250)this.gap((now-this.frameAt)/1000);
+      this.frameAt=now;
+    }
+    gap(seconds){this.gapCount++;this.gapSeconds+=seconds;this.maxGap=Math.max(this.maxGap,seconds);
+      this.gaps.push({at:Math.round((Date.now()-this.started)/1000),seconds:+seconds.toFixed(3)});
+      if(this.gaps.length>80)this.gaps.shift();}
+    resolution(size){if(size && this.resolutions.at(-1)?.size!==size){this.resolutions.push({at:Math.round((Date.now()-this.started)/1000),size});if(this.resolutions.length>30)this.resolutions.shift();}}
+    report(report,peer,resolution){
+      let inbound=null,pair=null;
+      const videos=[];report.forEach(r=>{if(r.type==='inbound-rtp'&&!r.isRemote&&(r.kind==='video'||r.mediaType==='video'))videos.push(r);});
+      inbound=videos.sort((a,b)=>(b.bytesReceived||0)-(a.bytesReceived||0))[0];
+      if(!inbound){this.unavailable++;return null;}
+      const transport=report.get(inbound.transportId);
+      if(transport?.selectedCandidatePairId)pair=report.get(transport.selectedCandidatePairId);
+      if(!pair)report.forEach(r=>{if(!pair&&r.type==='candidate-pair'&&r.state==='succeeded'&&r.nominated)pair=r;});
+      const finite=v=>typeof v==='number'&&Number.isFinite(v)?v:null;
+      const n={id:inbound.id,time:finite(inbound.timestamp),frames:finite(inbound.framesDecoded),arrived:finite(inbound.framesReceived),
+        bytes:finite(inbound.bytesReceived),received:finite(inbound.packetsReceived),lost:finite(inbound.packetsLost),
+        decode:finite(inbound.totalDecodeTime),jitter:finite(inbound.jitterBufferDelay),emitted:finite(inbound.jitterBufferEmittedCount),
+        freezes:finite(inbound.freezeCount),frozen:finite(inbound.totalFreezesDuration)};
+      const p=this.previous;
+      this.previous=n;
+      this.resolution(resolution);
+      if(this.nativeCount===null&&n.freezes!==null)this.nativeCount=0;
+      if(this.nativeSeconds===null&&n.frozen!==null)this.nativeSeconds=0;
+      if(this.peer!==peer || !p || p.id!==n.id){if(p)this.note('Video connection/counter baseline changed');this.peer=peer;return null;}
+      const dt=(n.time-p.time)/1000;
+      if(!Number.isFinite(dt)||dt<=0||dt>5 || n.frames===null||p.frames===null||n.frames<p.frames||(n.bytes!==null&&p.bytes!==null&&n.bytes<p.bytes)){this.skipped++;return null;}
+      const delta=(key)=>n[key]!==null&&p[key]!==null?Math.max(0,n[key]-p[key]):null;
+      const frames=delta('frames');const fps=frames/dt;this.seconds+=dt;this.frames+=frames;this.minFps=this.minFps===null?fps:Math.min(this.minFps,fps);
+      const arrived=delta('arrived');if(arrived!==null){this.arrivedFrames+=arrived;this.arrivedSeconds+=dt;}
+      const videoBytes=delta('bytes');if(videoBytes!==null){this.videoBytes+=videoBytes;this.byteSeconds+=dt;}
+      const received=delta('received'),lost=delta('lost');if(received!==null&&lost!==null){this.received+=received;this.lost+=lost;}
+      const rtt=finite(pair?.currentRoundTripTime);if(rtt!==null){this.rttSum+=rtt*dt;this.rttSeconds+=dt;this.maxRtt=this.maxRtt===null?rtt:Math.max(this.maxRtt,rtt);}
+      const decode=delta('decode');if(decode!==null&&frames>0){this.decodeSeconds+=decode;this.decodeFrames+=frames;}
+      const jitter=delta('jitter'),emitted=delta('emitted');if(jitter!==null&&emitted>0){this.jitterSeconds+=jitter;this.jitterFrames+=emitted;}
+      const freezes=delta('freezes'),frozen=delta('frozen');if(freezes!==null)this.nativeCount+=freezes;if(frozen!==null)this.nativeSeconds+=frozen;
+      // Store only numeric measurements, never IPs, account data or raw reports.
+      const row={at:Math.round((Date.now()-this.started)/1000),seconds:+dt.toFixed(3),fps:+fps.toFixed(1),
+        kbps:delta('bytes')===null?null:Math.round(delta('bytes')*8/dt/1000),rttMs:rtt===null?null:Math.round(rtt*1000),
+        lossPercent:received!==null&&lost!==null&&received+lost>0?+(100*lost/(received+lost)).toFixed(2):null,
+        decodeMs:decode!==null&&frames>0?+(decode*1000/frames).toFixed(2):null,
+        newNativeFreezes:freezes,resolution};
+      this.samples.push(row);if(this.samples.length>600)this.samples.shift();return row;
+    }
+    summary(reason){return{
+      version:'HVS mobile diagnostics 3 — native bandwidth adaptation',mobileRequest:window.homeViewMobileTuningStatus?.()||null,reason,finishedAt:new Date().toISOString(),
+      wallSeconds:Math.round((Date.now()-this.started)/1000),measuredSeconds:+this.seconds.toFixed(1),
+      averageIncomingFps:this.arrivedSeconds?+(this.arrivedFrames/this.arrivedSeconds).toFixed(1):null,
+      averageKbps:this.byteSeconds?Math.round(this.videoBytes*8/this.byteSeconds/1000):null,
+      averageFps:this.seconds?+(this.frames/this.seconds).toFixed(1):null,lowestSampleFps:this.minFps===null?null:+this.minFps.toFixed(1),
+      averageRttMs:this.rttSeconds?Math.round(this.rttSum/this.rttSeconds*1000):null,maxRttMs:this.maxRtt===null?null:Math.round(this.maxRtt*1000),
+      intervalLossPercent:this.received+this.lost?+(100*this.lost/(this.received+this.lost)).toFixed(2):null,
+      averageDecodeMs:this.decodeFrames?+(this.decodeSeconds*1000/this.decodeFrames).toFixed(2):null,
+      averageJitterBufferMs:this.jitterFrames?Math.round(this.jitterSeconds*1000/this.jitterFrames):null,
+      nativeFreezeCount:this.nativeCount,nativeFrozenSeconds:this.nativeSeconds===null?null:+this.nativeSeconds.toFixed(2),
+      observedGapCount:this.gapCount,longestObservedGapSeconds:+this.maxGap.toFixed(2),observedGapSeconds:+this.gapSeconds.toFixed(2),
+      frameGapMethod:this.frameSupported?'Video presentation callbacks; gaps >=250 ms':'Unavailable in this browser',
+      resolutions:this.resolutions,timeline:this.samples,events:this.events,worstGaps:[...this.gaps].sort((a,b)=>b.seconds-a.seconds).slice(0,3),
+      statsErrors:this.errors,missingPeerPolls:this.noPeer,missingInboundPolls:this.unavailable,skippedIntervals:this.skipped,
+      limitations:'Browser observations only; no Unreal GPU/CPU or encoder timing. RTT is a round trip, not input latency. Native freezes and presentation gaps are different measures. Hidden tabs, paused video and screenshot generation are excluded; startup before the game reveals is excluded. Missing counters remain unavailable. Final sample may precede ending by about one second.'
+    };}
+  }
+  const metrics=new HvsDiagnosticMetrics();let running=false,finished=false,timer=null,busy=false,last=null,summary=null;
+  const style=document.createElement('style');style.textContent=`
+#hvsDiagBadge{position:fixed;left:max(8px,env(safe-area-inset-left));top:max(8px,env(safe-area-inset-top));z-index:19000;pointer-events:none;background:rgba(10,15,18,.88);color:#fff;border:1px solid #77838c;border-radius:9px;padding:6px 9px;font:12px/1.3 Arial,sans-serif;max-width:70vw}
+#hvsDiagResults[hidden],#hvsDiagResultsButton[hidden]{display:none!important}
+#hvsSessionScreen.hvs-diagnostics-results>.hvsSystemCard{max-height:96dvh;overflow:auto;width:min(560px,96vw)!important;padding:18px!important}
+#hvsSessionScreen.hvs-diagnostics-results .hvsSystemLogo,#hvsSessionScreen.hvs-diagnostics-results #hvsSessionTitle,#hvsSessionScreen.hvs-diagnostics-results #hvsSessionMessage,#hvsSessionScreen.hvs-diagnostics-results .hvsSystemActions{display:none!important}
+#hvsDiagResults{font:13px/1.35 Arial,sans-serif;text-align:left;color:#fff}
+#hvsDiagResults h2{font:700 19px/1.2 Arial,sans-serif;margin:0 0 7px!important;text-align:left}
+#hvsDiagResults p{font:12px/1.35 Arial,sans-serif;margin:7px 0!important;letter-spacing:0;text-transform:none}
+#hvsDiagResults dl{margin:8px 0;display:grid;grid-template-columns:1fr 1fr;gap:5px 10px}
+#hvsDiagResults dt{color:#ccd3d8}#hvsDiagResults dd{margin:0;text-align:right;font-weight:600}
+#hvsDiagResults button{font:600 12px Arial,sans-serif;border:1px solid #8c999f;border-radius:20px;background:#253039;color:white;padding:9px 12px;margin:6px 5px 0 0}
+`;document.head.appendChild(style);
+  const badge=document.createElement('div');badge.id='hvsDiagBadge';badge.textContent='TEST MODE · waiting for game';document.body.appendChild(badge);
+  const card=document.querySelector('#hvsSessionScreen .hvsSystemCard');
+  const button=document.createElement('button');button.id='hvsDiagResultsButton';button.type='button';button.textContent='TEST RESULTS';button.hidden=true;
+  card.querySelector('.hvsSystemActions').appendChild(button);
+  const panel=document.createElement('section');panel.id='hvsDiagResults';panel.hidden=true;panel.setAttribute('aria-label','Mobile test results');card.appendChild(panel);
+  const blocked=(video=document.querySelector('#video-container video'))=>document.hidden||video?.paused||hvsScreenshotProtected();
+  function peer(){
+    const sources=[window.homeViewArcwareAudioStream,localStream,application?.stream,application];
+    for(const s of sources){const c=s?.webRtcController;const p=c?.peerConnectionController?.peerConnection||s?.peerConnectionController?.peerConnection;if(typeof p?.getStats==='function')return p;}
+    const fallback=hvsRtcPeer();return typeof fallback?.getStats==='function'?fallback:null;
+  }
+  async function poll(){
+    if(!running||finished||busy)return;
+    busy=true;
+    try{
+      if(blocked()){metrics.reset();badge.textContent='TEST MODE · paused while hidden / saving';return;}
+      const video=document.querySelector('#video-container video');const size=video?.videoWidth&&video?.videoHeight?`${video.videoWidth} × ${video.videoHeight}`:null;metrics.resolution(size);
+      const pc=peer();if(!pc){metrics.noPeer++;badge.textContent='TEST MODE · video gaps recording; network stats unavailable';return;}
+      const report=await pc.getStats();if(!running||finished||blocked()){metrics.reset();return;}
+      last=metrics.report(report,pc,size)||last;
+      badge.textContent=last?`TEST RECORDING · ${last.fps} FPS · ${size||'size unavailable'} · RTT ${last.rttMs===null?'n/a':last.rttMs+' ms'}`:'TEST RECORDING · waiting for video statistics';
+    }catch(_){metrics.errors++;badge.textContent='TEST RECORDING · browser stats unavailable';}
+    finally{busy=false;if(running&&!finished)timer=setTimeout(poll,1000);}
+  }
+  const value=(n,unit='')=>n===null||n===undefined?'Unavailable':`${n}${unit}`;
+  function show(){
+    if(!summary)return;
+    panel.replaceChildren();const title=document.createElement('h2');title.textContent='MOBILE TEST RESULTS';panel.appendChild(title);
+    const p=document.createElement('p');p.textContent=`Test 3 · ${summary.wallSeconds}s elapsed / ${summary.measuredSeconds}s stats measured · ${summary.reason}`;panel.appendChild(p);
+    const list=document.createElement('dl');
+    const request=summary.mobileRequest;
+    const rows=[['Video sizes',summary.resolutions.map(r=>r.size).join(' → ')||'Unavailable'],
+      ['Requested size / max bitrate',request?`${request.requestedSize} / ${request.desiredMaxKbps} kbps`:'Unavailable'],
+      ['Bitrate request / SDK max',request?`${request.bitrateRequestSent?'sent':'not confirmed'} / ${value(request.sdkMaxKbps,' kbps')}`:'Unavailable'],['Decoded FPS avg / lowest',value(summary.averageFps)+' / '+value(summary.lowestSampleFps)],
+      ['Incoming FPS / video bitrate',value(summary.averageIncomingFps)+' / '+value(summary.averageKbps,' kbps')],
+      ['Network RTT avg / max',value(summary.averageRttMs,' ms')+' / '+value(summary.maxRttMs,' ms')],['Reported interval packet loss',value(summary.intervalLossPercent,'%')],
+      ['Decode time / frame',value(summary.averageDecodeMs,' ms')],['Jitter buffer / frame',value(summary.averageJitterBufferMs,' ms')],
+      ['Native freezes / total time',value(summary.nativeFreezeCount)+' / '+value(summary.nativeFrozenSeconds,' s')],
+      ['Observed gaps ≥250 ms',metrics.frameSupported?String(summary.observedGapCount):'Unavailable'],['Longest / total observed gaps',metrics.frameSupported?`${summary.longestObservedGapSeconds}s / ${summary.observedGapSeconds}s`:'Unavailable']];
+    for(const[label,text]of rows){const dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=label;dd.textContent=text;list.append(dt,dd);}panel.appendChild(list);
+    const note=document.createElement('p');note.textContent='Gaps include video delivery and browser scheduling; these numbers do not identify an Unreal or server cause. Hidden/paused periods are excluded.';panel.appendChild(note);
+    if(summary.worstGaps.length){const worst=document.createElement('p');worst.textContent='Longest gaps: '+summary.worstGaps.map(g=>`${g.seconds}s at ${g.at}s`).join(' · ');panel.appendChild(worst);}
+    const unsupported=document.createElement('p');unsupported.textContent=`Stats issues: ${summary.statsErrors} errors · ${summary.missingPeerPolls} polls without network stats. Screenshot this summary; save the full report if more detail is needed.`;panel.appendChild(unsupported);
+    const back=document.createElement('button');back.textContent='BACK';back.type='button';back.onclick=()=>{panel.hidden=true;document.getElementById('hvsSessionScreen').classList.remove('hvs-diagnostics-results');};panel.appendChild(back);
+    const download=document.createElement('button');download.textContent='SAVE FULL REPORT';download.type='button';download.onclick=()=>{
+      const blob=new Blob([JSON.stringify(summary,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='HomeView-mobile-test.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),15000);
+    };panel.appendChild(download);
+    document.getElementById('hvsSessionScreen').classList.add('hvs-diagnostics-results');panel.hidden=false;
+  }
+  button.addEventListener('click',show);
+  window.homeViewDiagnostics={
+    start(){if(running||finished)return;running=true;metrics.started=Date.now();metrics.note('Game revealed; recording started');poll();},
+    frame(video,now){if(!running||finished)return;metrics.frameSupported=typeof video.requestVideoFrameCallback==='function';if(blocked(video)){metrics.reset();return;}metrics.frame(video,now);},
+    note(payload){if(!running||finished||!payload||typeof payload!=='object')return;
+      if(payload.teleportMap!==undefined)metrics.note('Teleport requested');else if(payload.property!==undefined)metrics.note('Lot change requested');else if(payload.lot==='loaded')metrics.note('Lot loaded');else if(payload.cutscene!==undefined)metrics.note('Movie '+String(payload.cutscene).slice(0,20));},
+    stop(reason){if(finished)return;finished=true;running=false;clearTimeout(timer);metrics.note('Recording stopped');
+      if(metrics.frameAt!==null && !blocked()){const tail=(performance.now()-metrics.frameAt)/1000;if(tail>=.25)metrics.gap(tail);}
+      summary=metrics.summary(reason);try{sessionStorage.setItem('hvs-last-mobile-diagnostic',JSON.stringify(summary));}catch(_){}
+      button.hidden=false;badge.textContent='TEST COMPLETE · results available after session ends';},
+    snapshot:()=>summary||metrics.summary('recording')
+  };
+  document.addEventListener('visibilitychange',()=>{if(running){metrics.reset();metrics.note(document.hidden?'Page hidden; measurement paused':'Page visible; baseline reset');}});
+  window.addEventListener('pagehide',()=>{if(running)window.homeViewDiagnostics.stop('Page left');});
 }
 
 startLoadingMedia();
@@ -11283,30 +11163,21 @@ if (dev_mode) {
     const { ArcwareInit } = await import('https://unpkg.com/@arcware-cloud/pixelstreaming-websdk@1.3.32/index.mjs');
     const setup = new ArcwareInit(
       { shareId:SHARE_ID },
-       { initialSettings:{ AutoConnect:true, AutoPlayVideo:true,
-           WebRTCFPS:HVS_REQUESTED_MAX_FPS, // 30 FPS maximum on mobile and desktop; never 60
-           // Mobile: exact existing 1300..6000 kbps adaptive controller.
-           // Desktop: LUX-style original Arcware bitrate/codec for true colour;
-           // adapt only the render resolution, not bitrate.
-           // We manage one bounded viewport resize ourselves on BOTH mobile
-           // and desktop. Prevent the SDK's automatic resize from racing it.
-           MatchViewportRes:false,
-           ...(HVS_QUALITY_MOBILE ? {
-             WebRTCMaxBitrate:HVS_QUALITY_LEVELS[hvsQualityIndex],
-             WebRTCMinBitrate:0
-           } : {}),
-           // LUX uses StartVideoMuted:true. Make mobile equally autoplay-safe
+      { initialSettings:{ AutoConnect:true, AutoPlayVideo:true,
+          WebRTCFPS:HVS_REQUESTED_MAX_FPS,
+          ...(HVS_QUALITY_MOBILE?{MatchViewportRes:false}:{}),
+          WebRTCMaxBitrate:HVS_QUALITY_LEVELS[hvsQualityIndex],
+          WebRTCMinBitrate:0,
+          // LUX uses StartVideoMuted:true. Make mobile equally autoplay-safe
           // after the OS Save/Share interface; preserve desktop game audio.
           StartVideoMuted:/Android|iPhone|iPod|iPad/i.test(navigator.userAgent)
             || (window.matchMedia('(pointer:coarse)').matches && window.innerWidth<=1280) },
         settings:{ infoButton:false, micButton:false, audioButton:true, fullscreenButton:false,
                    settingsButton:false, connectionStrengthIcon:false } }
     );
-     application = setup.Application;
-     hvsDesktopRtcStream = setup.PixelStreaming || null;
-     if (HVS_QUALITY_MOBILE) hvsStartAdaptiveQuality(setup.Config); // original mobile bitrate optimizer
-     hvsStartDesktopAdaptiveResolution(); // desktop resolution only, original codec/bitrate
-     // Let the custom sound icon reach Arcware's separate (sometimes detached)
+    application = setup.Application;
+    hvsStartAdaptiveQuality(setup.Config);
+    // Let the custom sound icon reach Arcware's separate (sometimes detached)
     // WebRTC audio element and its own toggleAudio(video, muted) method.
     window.homeViewArcwareAudioStream = setup.PixelStreaming;
     application.getApplicationResponse(receiveUnrealResponse);
