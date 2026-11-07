@@ -3060,6 +3060,16 @@ protected price storage, and user profile database.
     box-sizing:border-box;padding:3px;border:0;border-radius:12px;background:transparent;
 }
 #hvsLayoutRoomDialog .layoutChoiceButton {width:100%;min-height:47px;height:auto;padding:10px 7px;font-size:12px;white-space:normal;overflow-wrap:break-word;}
+/* Keep a touch-sized close control at the top while this card scrolls. */
+#hvsLayoutRoomClose {
+    position:sticky;top:0;float:right;z-index:2;display:grid;place-items:center;
+    width:44px;height:44px;margin:-10px -8px 0 6px;padding:0;
+    border:1px solid rgba(255,255,255,.3);border-radius:50%;
+    background:rgba(20,27,30,.94);color:#fff;font:28px/1 Arial,sans-serif;
+    cursor:pointer;touch-action:manipulation;
+}
+#hvsLayoutRoomClose:focus-visible {outline:2px solid #fff;outline-offset:2px;}
+#hvsLayoutRoomDialog .layoutOfferDescription {clear:both;}
 #hvsLayoutRoomDialog .layoutOfferDismiss {
     display:block;margin:16px auto 0;border:0;background:transparent;cursor:pointer;
     padding:7px 15px;color:rgba(255,255,255,.7);font:600 12px "HomeView Myriad",Arial,sans-serif;
@@ -5632,6 +5642,7 @@ body:is(.hvs-session-ending,.hvs-session-ended) #hvsSessionScreen{z-index:214748
      windows can be temporarily hidden, then restored, without closing. -->
 <div id="hvsLayoutRoomPrompt" role="presentation" aria-hidden="true">
   <section id="hvsLayoutRoomDialog" role="dialog" aria-modal="false" aria-labelledby="hvsLayoutRoomTitle" aria-describedby="hvsLayoutRoomDescription">
+    <button id="hvsLayoutRoomClose" type="button" aria-label="Close layout options">×</button>
     <h2 class="layoutOfferTitle" id="hvsLayoutRoomTitle">MAKE THIS SPACE YOURS</h2>
     <p class="layoutOfferDescription" id="hvsLayoutRoomDescription">Enjoy an open upstairs lounge, or turn this space into an additional bedroom. You can change your choice anytime in <strong>Teleport Map → Upstairs Layout</strong>.</p>
     <div class="layoutOfferButtons">
@@ -7062,6 +7073,7 @@ function hvsShowLayoutRoomPrompt(){
     if(hvsLayoutRoomPrompt.classList.contains('is-open'))return;
     closeUpstairsLayoutDialog();
     hvsSyncLayoutRoomPrompt();
+    document.getElementById('hvsLayoutRoomDialog').scrollTop=0;
     hvsLayoutRoomPrompt.classList.add('is-open');
     hvsLayoutRoomPrompt.setAttribute('aria-hidden','false');
     // Do not move focus into the popup. Keeping focus where it was lets
@@ -7077,6 +7089,7 @@ window.homeViewTestLayoutOffer=()=>hvsShowLayoutRoomPrompt();
 hvsLayoutRoomLounge.addEventListener('click',()=>{chooseFirstFloorLayout('lounge');hvsCloseLayoutRoomPrompt();});
 hvsLayoutRoomBedroom.addEventListener('click',()=>{chooseFirstFloorLayout('bedroom');hvsCloseLayoutRoomPrompt();});
 hvsLayoutRoomDismiss.addEventListener('click',hvsCloseLayoutRoomPrompt);
+document.getElementById('hvsLayoutRoomClose').addEventListener('click',hvsCloseLayoutRoomPrompt);
 document.addEventListener('keydown',event=>{
     if(event.key==='Escape'&&hvsLayoutRoomPrompt.classList.contains('is-open')){
         event.preventDefault();event.stopPropagation();hvsCloseLayoutRoomPrompt();
@@ -9954,12 +9967,14 @@ function hvsRegisterVideoForRecovery(video){
   video.setAttribute('webkit-playsinline','');
   video.playsInline=true;
   const info={supportsFrames:typeof video.requestVideoFrameCallback==='function',
-    lastFrameAt:0, currentTime:video.currentTime||0, priorTime:video.currentTime||0};
+    lastFrameAt:0, lastGapAt:0, startupFrameCount:0, currentTime:video.currentTime||0, priorTime:video.currentTime||0};
   hvsRecoveryVideoMetadata.set(video,info);
   if(info.supportsFrames){
-    const onFrame=()=>{
-      info.lastFrameAt=Date.now();
-      window.homeViewDiagnostics?.frame(video,performance.now());
+    const onFrame=(callbackNow,frameMetadata)=>{
+      const frameNow=Date.now();
+      if(info.lastFrameAt && frameNow-info.lastFrameAt>=250)info.lastGapAt=frameNow;
+      info.lastFrameAt=frameNow;info.startupFrameCount++;
+      window.homeViewDiagnostics?.frame(video,performance.now(),frameMetadata);
       hvsRecoveryLastFrameAt=info.lastFrameAt;
       hvsRecoveryLastFrameVideo=video;
       if(hvsRecoveryInProgress)hvsRecoverySucceeded('new video frames');
@@ -10215,7 +10230,7 @@ function receiveUnrealResponse(response) {
       window.homeViewOnLevelReady?.();
       // One initial resolution request is sufficient. Additional correction
       // is only considered once actual video dimensions are available.
-      setTimeout(() => sendViewportResolutionToUnreal('Home View level ready', true), 380);
+      if(!HVS_QUALITY_MOBILE)setTimeout(() => sendViewportResolutionToUnreal('Home View level ready', true), 380);
       hvsRefreshInitialPlayerFit();
       // On initial mobile connection the Unreal video may still be 16:9 even
       // though the phone's stage is much wider. Rotation fixed this before;
@@ -10320,6 +10335,86 @@ function hvsStartupSamplePicture(video) {
     return null;
   }
 }
+// STARTUP PLAYBACK GATE: four consecutive healthy one-second windows.
+// This measures delivered playback; it cannot predict a future Unreal hitch.
+class HvsStartupPlaybackGate {
+  constructor(){this.reset();}
+  reset(){this.previous=null;this.healthyMs=0;this.fps=null;}
+  update(state,now){
+    const valid=state.good && !state.paused && state.mobileFitMatched && state.settingsReady &&
+      Number.isFinite(state.progressFrames);
+    if(!valid){this.reset();return false;}
+    const key=state.video;
+    const p=this.previous;
+    const changed=!p || p.key!==key || p.width!==state.videoWidth || p.height!==state.videoHeight ||
+      p.source!==state.progressSource || state.progressFrames<p.frames;
+    const recentGap=state.lastFrameGapAt && p && state.lastFrameGapAt>p.at;
+    const stale=state.lastFrameAt && now-state.lastFrameAt>=250;
+    if(changed || recentGap || stale || now-p.at>1600){
+      this.previous={key,width:state.videoWidth,height:state.videoHeight,source:state.progressSource,frames:state.progressFrames,at:now};
+      this.healthyMs=0;this.fps=null;return false;
+    }
+    const dt=now-p.at;
+    if(dt<1000)return false;
+    this.fps=(state.progressFrames-p.frames)*1000/dt;
+    this.healthyMs=this.fps>=27 ? this.healthyMs+dt : 0;
+    this.previous={...p,frames:state.progressFrames,at:now};
+    return this.healthyMs>=4000;
+  }
+}
+const hvsStartupPlaybackGate=new HvsStartupPlaybackGate();
+let hvsStartupSettingsAttemptAt=0;
+// Isolated comparison: retain all Test 8 streaming controls, request only MaxQP 40.
+const HVS_TEST_MAX_QP=40;
+let hvsQPSent=false,hvsQPAttempts=0,hvsQPLastAttempt=0,hvsQPFirstRequestAt=null;
+const hvsQPSamples=[];
+function hvsApplyQPComparison(){
+  if(!HVS_QUALITY_MOBILE||dev_mode||!hvsQualityAllowed()||hvsQPSent||hvsQPAttempts>=5)return;
+  const video=document.querySelector('#video-container video');
+  if(!video||video.readyState<2||!video.videoWidth||video.paused||Date.now()-hvsQPLastAttempt<1000)return;
+  hvsQPLastAttempt=Date.now();hvsQPAttempts++;
+  hvsQPSent=hvsSendMobileCommand({'Encoder.MaxQP':HVS_TEST_MAX_QP});
+  if(hvsQPSent)hvsQPFirstRequestAt=Date.now();
+}
+function hvsRecordEncoderQP(event){
+  if(!hvsQPSent||window.homeViewSessionIntentional||homeViewTeardownStarted)return;
+  const value=event?.data?.avgQP;
+  if(typeof value!=='number'||!Number.isFinite(value)||value<0||value>51)return;
+  hvsQPSamples.push({secondsAfterRequest:+((Date.now()-hvsQPFirstRequestAt)/1000).toFixed(2),qp:+value.toFixed(2)});
+  if(hvsQPSamples.length>120)hvsQPSamples.shift();
+}
+function hvsQPComparisonSnapshot(){
+  const initial=hvsServerTimingProbe.serverConfiguration?.encoder?.maxQP??null;
+  const values=hvsQPSamples.map(s=>s.qp);
+  return {requestedMaxQP:HVS_TEST_MAX_QP,commandSent:hvsQPSent,sendAttempts:hvsQPAttempts,
+    serverInitialMaxQP:initial,reportedQPMin:values.length?Math.min(...values):null,
+    reportedQPMax:values.length?Math.max(...values):null,
+    observedAboveInitialMax:initial===null||!values.length?null:values.some(q=>q>initial),
+    samples:hvsQPSamples.map(s=>({...s})),
+    note:'Command sent is not an acknowledgement. Reported QP above the original limit is supporting evidence of use; absence may mean the extra range was unnecessary or the request was not applied.'};
+}
+
+function hvsEnsureMobileStartupSettings(){
+  hvsApplyQPComparison();
+  if(!HVS_QUALITY_MOBILE || dev_mode)return true;
+  const configReady=hvsQualityConfig?.getNumericSettingValue?.('WebRTCMaxBitrate')===HVS_QUALITY_LEVELS[hvsQualityIndex] &&
+    hvsQualityConfig?.getNumericSettingValue?.('WebRTCFPS')===HVS_REQUESTED_MAX_FPS;
+  if(hvsMobileRateSendOk && hvsMobileRateSentKbps===HVS_QUALITY_LEVELS[hvsQualityIndex] && configReady)return true;
+  if(Date.now()-hvsStartupSettingsAttemptAt>=1000){
+    hvsStartupSettingsAttemptAt=Date.now();hvsApplyBitrateHint();
+  }
+  return hvsMobileRateSendOk && hvsMobileRateSentKbps===HVS_QUALITY_LEVELS[hvsQualityIndex] &&
+    hvsQualityConfig?.getNumericSettingValue?.('WebRTCMaxBitrate')===HVS_QUALITY_LEVELS[hvsQualityIndex] &&
+    hvsQualityConfig?.getNumericSettingValue?.('WebRTCFPS')===HVS_REQUESTED_MAX_FPS;
+}
+function hvsStartupProgress(video,info){
+  try{
+    const quality=video?.getVideoPlaybackQuality?.();
+    if(Number.isFinite(quality?.totalVideoFrames) && quality.totalVideoFrames>0)return {progressFrames:Math.max(0,quality.totalVideoFrames-(quality.droppedVideoFrames||0)),progressSource:'playback counter'};
+    if(Number.isFinite(video?.webkitDecodedFrameCount) && video.webkitDecodedFrameCount>0)return {progressFrames:Math.max(0,video.webkitDecodedFrameCount-(video.webkitDroppedFrameCount||0)),progressSource:'decoded counter'};
+  }catch(_){}
+  return {progressFrames:info?.supportsFrames?info.startupFrameCount:null,progressSource:'frame callbacks'};
+}
 function hvsStartupInspectVideo() {
   const video=document.querySelector('#video-container video');
   const info=video ? hvsRecoveryVideoMetadata.get(video) : null;
@@ -10353,7 +10448,9 @@ function hvsStartupInspectVideo() {
     readyState:video?.readyState??null,paused:video?.paused??null,trackLive:live,
     frames:frameCount,hasFrames,picture:hvsStartupVideoSample,
     aspectMatched:hasFrames&&!hvsStreamAspectMismatched(),good,
-    checks:hvsStartupVideoVisibleChecks};
+    checks:hvsStartupVideoVisibleChecks,video,
+    ...hvsStartupProgress(video,info),lastFrameAt:info?.lastFrameAt||0,lastFrameGapAt:info?.lastGapAt||0,
+    mobileFitMatched:!HVS_QUALITY_MOBILE || Boolean(video?.videoWidth && Math.abs(video.videoWidth-getStreamingViewportResolution().width)<=2 && Math.abs(video.videoHeight-getStreamingViewportResolution().height)<=2)};
   hvsStartupVideoLastInspection=state;
   return state;
 }
@@ -10379,12 +10476,10 @@ function hvsCompleteGameReveal() {
   setTimeout(()=>window.homeViewShowGameReady?.(),270);
   ui.classList.add('is-ready');
   window.homeViewLevelReady=true;
-  if(!dev_mode && HVS_QUALITY_MOBILE){
-    [0,1200,3500].forEach(ms=>setTimeout(()=>{
-      if(hvsQualityAllowed())hvsApplyBitrateHint();
-    },ms));
-  }
-  window.homeViewDiagnostics?.start();
+  // Mobile settings were settled while loading; revealing sends no new resize/bitrate command.
+  // Diagnostic failure must never leave the black curtain over a ready stream.
+  try{window.homeViewDiagnostics?.markRevealed();}
+  catch(error){console.warn('[TIMING TEST] Reveal measurement failed; continuing game reveal.',error);} 
   window.homeViewOnLevelReadyForAfk?.();
   document.body.classList.add('hvs-audio-ready');
   requestAnimationFrame(()=>{
@@ -10407,22 +10502,26 @@ const HVS_STARTUP_SETTLE_MS = 0;
 function hvsWaitForStartupFit() {
   const token=++hvsStartupMonitorToken;
   hvsStartupVideoWaitStarted=performance.now();
+  hvsStartupPlaybackGate.reset();
   let hvsStartupVideoSettlingSince = 0;
   const check=()=>{
     if(token!==hvsStartupMonitorToken || hvsGameRevealStarted ||
       window.homeViewSessionIntentional || homeViewTeardownStarted)return;
-    if(document.hidden){setTimeout(check,750);return;}
+    if(document.hidden){hvsStartupPlaybackGate.reset();setTimeout(check,750);return;}
     const elapsed=performance.now()-hvsStartupVideoWaitStarted;
+    const settingsReady=hvsEnsureMobileStartupSettings();
     const state=hvsStartupInspectVideo();
+    state.settingsReady=settingsReady;
     // Confirm a couple of genuine video frames before revealing the menu.
     // A slight encoded-aspect discrepancy must not hide usable picture forever.
     const pictureReady=state.good && state.checks>=3;
     const fitSettled=state.aspectMatched || elapsed>=3000;
-    if(pictureReady && fitSettled){
+    const mobilePlaybackReady=HVS_QUALITY_MOBILE&&!dev_mode ? hvsStartupPlaybackGate.update(state,Date.now()) : true;
+    if(pictureReady && fitSettled && mobilePlaybackReady){
       if(!hvsStartupVideoSettlingSince){
         hvsStartupVideoSettlingSince=performance.now();
         hvsStartupSetNotice('hide');
-        console.info('[STARTUP VIDEO] Picture confirmed; revealing without extra settling delay.',state);
+        console.info('[STARTUP VIDEO] Playback readiness confirmed.',state);
       }
       if(performance.now()-hvsStartupVideoSettlingSince >= HVS_STARTUP_SETTLE_MS){
         console.info('[STARTUP VIDEO] Ready video confirmed; revealing the game.',state);
@@ -10437,12 +10536,14 @@ function hvsWaitForStartupFit() {
     if(!hvsStartupVideoSettlingSince && elapsed>=20000){
       const detail=state.hasFrames && state.picture==='black'
         ? 'The stream is delivering black frames. Unreal may still be rendering its scene. You can wait, retry playback, or end the session.'
+        : HVS_QUALITY_MOBILE && state.hasFrames && !state.paused
+          ? 'Preparing your walkthrough. Playback is still settling. You can keep waiting or end the session.'
         : state.hasVideo && state.paused
           ? 'The browser has paused the video. Tap TRY VIDEO PLAYBACK, or end the session.'
           : 'Unreal is ready, but the first picture has not arrived. You can wait, retry playback, or end the session to save streaming time.';
       hvsStartupSetNotice('stuck',detail);
     }else if(!hvsStartupVideoSettlingSince && elapsed>=8000){
-      hvsStartupSetNotice('slow');
+      hvsStartupSetNotice('slow','Preparing your walkthrough. Waiting for smooth playback…');
     }
     // Do not tear down, reload or create another SDK session automatically.
     setTimeout(check,250);
@@ -10452,6 +10553,10 @@ function hvsWaitForStartupFit() {
 function revealHomeView() {
   if(levelReady)return;
   levelReady=true;
+  if(!dev_mode && HVS_QUALITY_MOBILE){
+    hvsEnsureMobileStartupSettings();
+    sendViewportResolutionToUnreal('prepare mobile before reveal',true);
+  }
   // Unreal's ready signal is NOT evidence of a visible WebRTC picture.
   // Keep the existing animated loader until the decoded scene is available.
   document.body.classList.add('hvs-stage-menu-entrance');
@@ -10675,12 +10780,12 @@ let localStyles = null;
 // cloud-controlled encoder settings can override it. No resolution changes.
 const HVS_QUALITY_MOBILE = /Android|iPhone|iPod|iPad/i.test(navigator.userAgent) ||
   (window.matchMedia('(pointer:coarse)').matches && Math.min(innerWidth,innerHeight)<900);
-// Mobile: WebRTC owns bandwidth adaptation beneath a 6 Mbps ceiling.
+// Mobile: WebRTC owns bandwidth adaptation beneath a 4 Mbps ceiling.
 // This is a maximum, not a forced sending rate; minimum bitrate stays zero.
 // Do not interpret low incoming FPS as network congestion: Unreal/encoder
 // stalls can cause it too. The former FPS ladder could stick at 1.3 Mbps.
 // Preserve the existing desktop controller and bitrate tiers.
-const HVS_QUALITY_LEVELS = HVS_QUALITY_MOBILE ? [6000] : [5000,7000,10000,14000];
+const HVS_QUALITY_LEVELS = HVS_QUALITY_MOBILE ? [4000] : [5000,7000,10000,14000];
 let hvsQualityIndex=0;
 let hvsQualityConfig=null;
 let hvsQualityTimer=null;
@@ -10690,7 +10795,7 @@ let hvsQualityBad=0;
 let hvsQualityMeasured=null;
 function hvsQualityAllowed(){return !dev_mode && !window.homeViewSessionIntentional &&
   !homeViewTeardownStarted && !document.hidden && Boolean(application) &&
-  window.homeViewLevelReady === true;}
+  (HVS_QUALITY_MOBILE ? levelReady===true : window.homeViewLevelReady===true);}
 function hvsApplyBitrateHint(){
   if(!hvsQualityAllowed())return false;
   const limit=HVS_QUALITY_LEVELS[hvsQualityIndex];
@@ -10988,14 +11093,120 @@ async function initialiseEpicLocalPlayer() {
   root.style.margin = '0';
   root.style.padding = '0';
   configureStreamingInputTarget(root);
+  window.homeViewDiagnostics?.start();
   console.info('[DEV MODE] Local Epic player mounted; waiting for Unreal Game:Loaded.');
   mobileDevStatus('Player mounted; waiting for Unreal Game Loaded');
   if (MOBILE_DIAGNOSTICS) setTimeout(() => { if (!levelReady && !loadRequested) mobileDevStatus('Still waiting for Game Loaded. Check signaling / only one player open.',true); else if (!levelReady) mobileDevStatus('Load requested; waiting for HomeViewLevelLoaded',true); }, 12000);
 }
 
+// Built-in Epic latency requests only. No console commands or quality changes.
+class HvsServerTimingProbe {
+  constructor({stream,allowed,clock=()=>performance.now(),wall=()=>Date.now(),schedule=(fn,ms)=>setTimeout(fn,ms),cancel=id=>clearTimeout(id)}){
+    Object.assign(this,{stream,allowed,clock,wall,schedule,cancel});
+    this.samples=[];this.marks=[];this.attempts=0;this.sent=0;this.pending=null;this.stopped=false;this.disabled=false;
+    this.status='waiting for gameplay';this.startedAt=null;this.lastAttempt=-Infinity;this.timer=null;this.timeout=null;this.boundStream=null;
+    this.serverConfiguration=null;
+    this.receive=event=>this.onResult(event?.data?.latencyTimings);
+    this.receiveSettings=event=>this.onSettings(event?.data?.settings);
+  }
+  bind(){
+    const stream=this.stream();
+    if(typeof stream?.requestLatencyTest!=='function'||typeof stream?.addEventListener!=='function')return false;
+    if(this.boundStream!==stream){
+      this.boundStream?.removeEventListener?.('latencyTestResult',this.receive);
+      this.boundStream?.removeEventListener?.('initialSettings',this.receiveSettings);
+      stream.addEventListener('latencyTestResult',this.receive);stream.addEventListener('initialSettings',this.receiveSettings);this.boundStream=stream;
+    }
+    return true;
+  }
+  start(){
+    if(this.startedAt!==null||this.stopped)return;
+    this.startedAt=this.clock();
+    if(this.disabled)return;
+    if(!this.bind()){this.status='SDK timing API unavailable';this.disabled=true;return;}
+    this.status='waiting for first sample';this.arm(2500);
+  }
+  arm(ms=10000){this.cancel(this.timer);if(!this.stopped&&!this.disabled&&this.sent<8)this.timer=this.schedule(()=>{this.request('scheduled');},ms);}
+  request(reason){
+    if(this.stopped||this.disabled||this.pending||this.sent>=8)return false;
+    if(!this.allowed()){this.arm();return false;}
+    if(this.clock()-this.lastAttempt<5000){this.arm();return false;}
+    if(!this.bind()){this.status='SDK timing API unavailable';this.disabled=true;return false;}
+    this.lastAttempt=this.clock();this.attempts++;
+    this.pending={at:this.clock(),wall:this.wall(),reason};
+    try{
+      if(this.boundStream.requestLatencyTest()!==true){this.pending=null;this.status='video not ready for timing request';if(this.attempts<3)this.arm();else this.disabled=true;return false;}
+      this.sent++;this.status='waiting for server timing';
+      // A single unanswered request stops probes; no connection reset or retry storm.
+      if(this.pending)this.timeout=this.schedule(()=>{
+        if(this.stopped||!this.pending)return;
+        this.pending=null;this.disabled=true;this.status='no server reply; timing may be disabled or unavailable';this.cancel(this.timer);
+      },6000);
+      return true;
+    }catch(_){this.pending=null;this.disabled=true;this.status='SDK timing request failed';return false;}
+  }
+  onSettings(settings){
+    if(this.stopped||!settings)return;
+    const n=v=>typeof v==='number'&&Number.isFinite(v)?v:null;
+    const encoder=settings.EncoderSettings||{},web=settings.WebRTCSettings||{};
+    this.serverConfiguration={latencyTestDisabled:settings.PixelStreamingSettings?.DisableLatencyTest===true,
+      encoder:{minQP:n(encoder.MinQP),maxQP:n(encoder.MaxQP),targetBitrateBps:n(encoder.TargetBitrate),maxBitrateBps:n(encoder.MaxBitrate)},
+      webRTC:{maxBitrateBps:n(web.MaxBitrate),minBitrateBps:n(web.MinBitrate),fps:n(web.FPS)}};
+    if(this.serverConfiguration.latencyTestDisabled){this.disabled=true;this.pending=null;this.cancel(this.timer);this.cancel(this.timeout);this.status='server reports latency testing disabled';}
+  }
+  onResult(raw){
+    if(this.stopped||!this.pending||!raw||typeof raw!=='object')return;
+    if(typeof raw.testStartTimeMs==='number'&&raw.testStartTimeMs>0&&Math.abs(raw.testStartTimeMs-this.pending.wall)>250)return;
+    if(!this.allowed()){this.pending=null;this.cancel(this.timeout);this.status='reply excluded while hidden or ending';this.arm();return;}
+    const finite=n=>typeof n==='number'&&Number.isFinite(n)&&n>=0?n:null;
+    const rounded=n=>n===null?null:+n.toFixed(2);
+    const receipt=finite(raw.ReceiptTimeMs),transmission=finite(raw.TransmissionTimeMs);
+    const serverHandling=receipt!==null&&transmission!==null&&transmission>=receipt?transmission-receipt:null;
+    // Do not use the SDK's computed endToEndLatency: this SDK has no dependable
+    // browser display measurement. These are sampled timings, not engine frame times.
+    this.samples.push({atSeconds:+((this.clock()-this.startedAt)/1000).toFixed(2),trigger:this.pending.reason,
+      probeRoundTripMs:rounded(Math.max(0,this.clock()-this.pending.at)),
+      serverEncodeMs:rounded(finite(raw.EncodeMs)),serverCaptureToSendMs:rounded(finite(raw.CaptureToSendMs)),
+      serverHandlingMs:rounded(serverHandling)});
+    this.pending=null;this.cancel(this.timeout);
+    this.status=this.sent>=8?'sampling complete':'server timing replies received';this.arm();
+  }
+  mark(reason,milliseconds){
+    if(this.stopped||this.startedAt===null)return;
+    this.marks.push({atSeconds:+((this.clock()-this.startedAt)/1000).toFixed(2),kind:reason,milliseconds:+milliseconds.toFixed(2)});
+    if(this.marks.length>60)this.marks.shift();
+    this.request(reason);
+  }
+  stop(){
+    this.stopped=true;this.cancel(this.timer);this.cancel(this.timeout);
+    if(this.pending){this.status='session ended before timing reply';this.pending=null;}
+    this.boundStream?.removeEventListener?.('latencyTestResult',this.receive);
+    this.boundStream?.removeEventListener?.('initialSettings',this.receiveSettings);
+  }
+  snapshot(){return {status:this.status,serverConfiguration:this.serverConfiguration?JSON.parse(JSON.stringify(this.serverConfiguration)):null,requestsSent:this.sent,repliesReceived:this.samples.length,
+    samples:this.samples.map(s=>({...s})),presentationMarks:this.marks.map(s=>({...s})),
+    limitations:'Point-in-time server capture/encode probes, at most eight. No engine CPU/GPU frame times. Probe round trip includes server work and data-channel travel; it is not input-to-display latency. Missing timing fields remain null. Unanswered requests do not prove a server fault.'};}
+}
+function hvsTimingStream(){
+  return [window.homeViewArcwareAudioStream,localStream,application?.stream,application].find(s=>typeof s?.requestLatencyTest==='function')||null;
+}
+const hvsServerTimingProbe=new HvsServerTimingProbe({stream:hvsTimingStream,
+  allowed:()=>window.homeViewLevelReady===true&&!document.hidden&&!window.homeViewSessionIntentional&&!homeViewTeardownStarted&&!hvsScreenshotProtected()});
+window.homeViewServerTiming=hvsServerTimingProbe;
+
 // HVS_DIAGNOSTICS_V1: read-only, enabled ONLY by ?diagnostics=1.
 // Does not send Unreal commands, alter settings, reconnect, or upload results.
 if(new URLSearchParams(location.search).get('diagnostics')==='1'){
+  // Counters only: reuse the existing video callback and one-second RTC poll.
+  // Callback timing also reflects browser scheduling, not only video delivery.
+  function hvsTimingBucket(){return {count:0,totalMs:0,maxMs:0,under25:0,from25to50:0,from50to100:0,from100to250:0,atLeast250:0};}
+  function hvsRecordTiming(bucket,ms){
+    if(!Number.isFinite(ms)||ms<=0)return;
+    bucket.count++;bucket.totalMs+=ms;bucket.maxMs=Math.max(bucket.maxMs,ms);
+    if(ms<25)bucket.under25++;else if(ms<50)bucket.from25to50++;
+    else if(ms<100)bucket.from50to100++;else if(ms<250)bucket.from100to250++;else bucket.atLeast250++;
+  }
+  function hvsTimingSummary(bucket){return {...bucket,totalMs:+bucket.totalMs.toFixed(2),maxMs:+bucket.maxMs.toFixed(2),averageMs:bucket.count?+(bucket.totalMs/bucket.count).toFixed(2):null};}
   class HvsDiagnosticMetrics{
     constructor(){
       this.previous=null;this.peer=null;this.samples=[];this.events=[];this.resolutions=[];
@@ -11003,14 +11214,31 @@ if(new URLSearchParams(location.search).get('diagnostics')==='1'){
       this.rttSum=0;this.rttSeconds=0;this.maxRtt=null;this.decodeSeconds=0;this.decodeFrames=0;
       this.jitterSeconds=0;this.jitterFrames=0;this.nativeCount=null;this.nativeSeconds=null;
       this.gaps=[];this.gapCount=0;this.gapSeconds=0;this.maxGap=0;this.video=null;this.frameAt=null;
+      this.callbackTiming=hvsTimingBucket();this.mediaTiming=hvsTimingBucket();this.displayTiming=hvsTimingBucket();
+      this.mediaAt=null;this.displayAt=null;this.presentedAt=null;this.unobservedPresentedFrames=0;this.shortGaps=[];this.droppedFrames=null;
       this.started=Date.now();this.errors=0;this.noPeer=0;this.unavailable=0;this.skipped=0;
     }
     note(kind){this.events.push({at:Math.round((Date.now()-this.started)/1000),kind});if(this.events.length>80)this.events.shift();}
-    reset(){this.previous=null;this.frameAt=null;}
-    frame(video,now){
-      if(this.video!==video){this.video=video;this.frameAt=null;}
-      if(this.frameAt!==null && now-this.frameAt>=250)this.gap((now-this.frameAt)/1000);
+    reset(){this.previous=null;this.frameAt=null;this.mediaAt=null;this.displayAt=null;this.presentedAt=null;}
+    frame(video,now,metadata){
+      if(this.video!==video){this.video=video;this.frameAt=null;this.mediaAt=null;this.displayAt=null;this.presentedAt=null;}
+      const interval=this.frameAt===null?null:now-this.frameAt;
+      if(interval!==null){
+        hvsRecordTiming(this.callbackTiming,interval);
+        if(interval>=250)this.gap(interval/1000);
+        else if(interval>=50){
+          this.shortGaps.push({at:+((Date.now()-this.started)/1000).toFixed(3),milliseconds:+interval.toFixed(2)});
+          if(this.shortGaps.length>120)this.shortGaps.shift();
+        }
+      }
       this.frameAt=now;
+      const media=metadata?.mediaTime,display=metadata?.expectedDisplayTime,presented=metadata?.presentedFrames;
+      if(Number.isFinite(media)){if(this.mediaAt!==null)hvsRecordTiming(this.mediaTiming,(media-this.mediaAt)*1000);this.mediaAt=media;}else this.mediaAt=null;
+      if(Number.isFinite(display)){if(this.displayAt!==null)hvsRecordTiming(this.displayTiming,display-this.displayAt);this.displayAt=display;}else this.displayAt=null;
+      if(Number.isFinite(presented)){
+        if(this.presentedAt!==null&&presented>this.presentedAt)this.unobservedPresentedFrames+=Math.max(0,presented-this.presentedAt-1);
+        this.presentedAt=presented;
+      }else this.presentedAt=null;
     }
     gap(seconds){this.gapCount++;this.gapSeconds+=seconds;this.maxGap=Math.max(this.maxGap,seconds);
       this.gaps.push({at:Math.round((Date.now()-this.started)/1000),seconds:+seconds.toFixed(3)});
@@ -11028,6 +11256,9 @@ if(new URLSearchParams(location.search).get('diagnostics')==='1'){
       const n={id:inbound.id,time:finite(inbound.timestamp),frames:finite(inbound.framesDecoded),arrived:finite(inbound.framesReceived),
         bytes:finite(inbound.bytesReceived),received:finite(inbound.packetsReceived),lost:finite(inbound.packetsLost),
         decode:finite(inbound.totalDecodeTime),jitter:finite(inbound.jitterBufferDelay),emitted:finite(inbound.jitterBufferEmittedCount),
+        dropped:finite(inbound.framesDropped),targetDelay:finite(inbound.jitterBufferTargetDelay),
+        minimumDelay:finite(inbound.jitterBufferMinimumDelay),processing:finite(inbound.totalProcessingDelay),
+        assembly:finite(inbound.totalAssemblyTime),assembled:finite(inbound.framesAssembledFromMultiplePackets),
         freezes:finite(inbound.freezeCount),frozen:finite(inbound.totalFreezesDuration)};
       const p=this.previous;
       this.previous=n;
@@ -11045,17 +11276,25 @@ if(new URLSearchParams(location.search).get('diagnostics')==='1'){
       const rtt=finite(pair?.currentRoundTripTime);if(rtt!==null){this.rttSum+=rtt*dt;this.rttSeconds+=dt;this.maxRtt=this.maxRtt===null?rtt:Math.max(this.maxRtt,rtt);}
       const decode=delta('decode');if(decode!==null&&frames>0){this.decodeSeconds+=decode;this.decodeFrames+=frames;}
       const jitter=delta('jitter'),emitted=delta('emitted');if(jitter!==null&&emitted>0){this.jitterSeconds+=jitter;this.jitterFrames+=emitted;}
+      const dropped=delta('dropped');if(dropped!==null)this.droppedFrames=(this.droppedFrames??0)+dropped;
       const freezes=delta('freezes'),frozen=delta('frozen');if(freezes!==null)this.nativeCount+=freezes;if(frozen!==null)this.nativeSeconds+=frozen;
       // Store only numeric measurements, never IPs, account data or raw reports.
       const row={at:Math.round((Date.now()-this.started)/1000),seconds:+dt.toFixed(3),fps:+fps.toFixed(1),
         kbps:delta('bytes')===null?null:Math.round(delta('bytes')*8/dt/1000),rttMs:rtt===null?null:Math.round(rtt*1000),
         lossPercent:received!==null&&lost!==null&&received+lost>0?+(100*lost/(received+lost)).toFixed(2):null,
         decodeMs:decode!==null&&frames>0?+(decode*1000/frames).toFixed(2):null,
-        newNativeFreezes:freezes,resolution};
+        newNativeFreezes:freezes,resolution,framesDropped:dropped,
+        jitterBufferMs:jitter!==null&&emitted>0?+(jitter*1000/emitted).toFixed(2):null,
+        jitterBufferTargetMs:delta('targetDelay')!==null&&emitted>0?+(delta('targetDelay')*1000/emitted).toFixed(2):null,
+        rtpJitterMs:finite(inbound.jitter)===null?null:+(inbound.jitter*1000).toFixed(2),
+        jitterBufferMinimumMs:delta('minimumDelay')!==null&&emitted>0?+(delta('minimumDelay')*1000/emitted).toFixed(2):null,
+        receiveToDecodeMs:delta('processing')!==null&&frames>0?+(delta('processing')*1000/frames).toFixed(2):null,
+        frameAssemblyMs:delta('assembly')!==null&&delta('assembled')>0?+(delta('assembly')*1000/delta('assembled')).toFixed(2):null,
+        callbackGaps50to100:this.callbackTiming.from50to100,callbackGaps100to250:this.callbackTiming.from100to250};
       this.samples.push(row);if(this.samples.length>600)this.samples.shift();return row;
     }
     summary(reason){return{
-      version:'HVS mobile diagnostics 3 — native bandwidth adaptation',mobileRequest:window.homeViewMobileTuningStatus?.()||null,reason,finishedAt:new Date().toISOString(),
+      version:'HVS mobile diagnostics 9 — MaxQP 40 comparison',mobileRequest:window.homeViewMobileTuningStatus?.()||null,reason,finishedAt:new Date().toISOString(),
       wallSeconds:Math.round((Date.now()-this.started)/1000),measuredSeconds:+this.seconds.toFixed(1),
       averageIncomingFps:this.arrivedSeconds?+(this.arrivedFrames/this.arrivedSeconds).toFixed(1):null,
       averageKbps:this.byteSeconds?Math.round(this.videoBytes*8/this.byteSeconds/1000):null,
@@ -11066,13 +11305,19 @@ if(new URLSearchParams(location.search).get('diagnostics')==='1'){
       averageJitterBufferMs:this.jitterFrames?Math.round(this.jitterSeconds*1000/this.jitterFrames):null,
       nativeFreezeCount:this.nativeCount,nativeFrozenSeconds:this.nativeSeconds===null?null:+this.nativeSeconds.toFixed(2),
       observedGapCount:this.gapCount,longestObservedGapSeconds:+this.maxGap.toFixed(2),observedGapSeconds:+this.gapSeconds.toFixed(2),
+      frameTiming:this.frameSupported?{
+        callbackIntervals:hvsTimingSummary(this.callbackTiming),mediaIntervals:hvsTimingSummary(this.mediaTiming),
+        expectedDisplayIntervals:hvsTimingSummary(this.displayTiming),
+        unobservedPresentedFrames:this.unobservedPresentedFrames,shortGapSamples:this.shortGaps,
+        note:'Callback gaps include browser scheduling. Media/display intervals are optional browser metadata. Unobserved presented frames are callback skips, not proven dropped video frames.'
+      }:null,browserFramesDropped:this.droppedFrames,
       frameGapMethod:this.frameSupported?'Video presentation callbacks; gaps >=250 ms':'Unavailable in this browser',
       resolutions:this.resolutions,timeline:this.samples,events:this.events,worstGaps:[...this.gaps].sort((a,b)=>b.seconds-a.seconds).slice(0,3),
       statsErrors:this.errors,missingPeerPolls:this.noPeer,missingInboundPolls:this.unavailable,skippedIntervals:this.skipped,
-      limitations:'Browser observations only; no Unreal GPU/CPU or encoder timing. RTT is a round trip, not input latency. Native freezes and presentation gaps are different measures. Hidden tabs, paused video and screenshot generation are excluded; startup before the game reveals is excluded. Missing counters remain unavailable. Final sample may precede ending by about one second.'
+      limitations:'Browser observations only; no Unreal GPU/CPU or encoder timing. RTT is a round trip, not input latency. Native freezes and presentation gaps are different measures. Hidden tabs, paused video and screenshot generation are excluded; Recording includes loading; startup and interactive playback are reported separately. Missing counters remain unavailable. Final sample may precede ending by about one second.'
     };}
   }
-  const metrics=new HvsDiagnosticMetrics();let running=false,finished=false,timer=null,busy=false,last=null,summary=null;
+  const metrics=new HvsDiagnosticMetrics(),playbackMetrics=new HvsDiagnosticMetrics();let revealedAt=null,startupSummary=null;let running=false,finished=false,timer=null,busy=false,last=null,summary=null;
   const style=document.createElement('style');style.textContent=`
 #hvsDiagBadge{position:fixed;left:max(8px,env(safe-area-inset-left));top:max(8px,env(safe-area-inset-top));z-index:19000;pointer-events:none;background:rgba(10,15,18,.88);color:#fff;border:1px solid #77838c;border-radius:9px;padding:6px 9px;font:12px/1.3 Arial,sans-serif;max-width:70vw}
 #hvsDiagResults[hidden],#hvsDiagResultsButton[hidden]{display:none!important}
@@ -11100,11 +11345,12 @@ if(new URLSearchParams(location.search).get('diagnostics')==='1'){
     if(!running||finished||busy)return;
     busy=true;
     try{
-      if(blocked()){metrics.reset();badge.textContent='TEST MODE · paused while hidden / saving';return;}
+      if(blocked()){metrics.reset();playbackMetrics.reset();badge.textContent='TEST MODE · paused while hidden / saving';return;}
       const video=document.querySelector('#video-container video');const size=video?.videoWidth&&video?.videoHeight?`${video.videoWidth} × ${video.videoHeight}`:null;metrics.resolution(size);
       const pc=peer();if(!pc){metrics.noPeer++;badge.textContent='TEST MODE · video gaps recording; network stats unavailable';return;}
-      const report=await pc.getStats();if(!running||finished||blocked()){metrics.reset();return;}
+      const report=await pc.getStats();if(!running||finished||blocked()){metrics.reset();playbackMetrics.reset();return;}
       last=metrics.report(report,pc,size)||last;
+      if(revealedAt!==null)playbackMetrics.report(report,pc,size);
       badge.textContent=last?`TEST RECORDING · ${last.fps} FPS · ${size||'size unavailable'} · RTT ${last.rttMs===null?'n/a':last.rttMs+' ms'}`:'TEST RECORDING · waiting for video statistics';
     }catch(_){metrics.errors++;badge.textContent='TEST RECORDING · browser stats unavailable';}
     finally{busy=false;if(running&&!finished)timer=setTimeout(poll,1000);}
@@ -11113,10 +11359,24 @@ if(new URLSearchParams(location.search).get('diagnostics')==='1'){
   function show(){
     if(!summary)return;
     panel.replaceChildren();const title=document.createElement('h2');title.textContent='MOBILE TEST RESULTS';panel.appendChild(title);
-    const p=document.createElement('p');p.textContent=`Test 3 · ${summary.wallSeconds}s elapsed / ${summary.measuredSeconds}s stats measured · ${summary.reason}`;panel.appendChild(p);
+    const p=document.createElement('p');p.textContent=`Test 9 · ${summary.wallSeconds}s elapsed / ${summary.measuredSeconds}s stats measured · ${summary.reason}`;panel.appendChild(p);
     const list=document.createElement('dl');
     const request=summary.mobileRequest;
-    const rows=[['Video sizes',summary.resolutions.map(r=>r.size).join(' → ')||'Unavailable'],
+    const probes=summary.serverTiming;
+    const samples=probes?.samples||[];
+    const lastProbe=samples.at(-1);
+    const qp=summary.qpComparison;
+    const rows=[['Requested MaxQP / command',qp?`${qp.requestedMaxQP} / ${qp.commandSent?'sent':'not confirmed'}`:'Unavailable'],
+      ['Reported encoder QP range',qp?value(qp.reportedQPMin)+' – '+value(qp.reportedQPMax):'Unavailable'],
+      ['Server timing replies',probes?`${probes.repliesReceived} / ${probes.requestsSent}`:'Unavailable'],
+      ['Latest server encode / capture',lastProbe?value(lastProbe.serverEncodeMs,' ms')+' / '+value(lastProbe.serverCaptureToSendMs,' ms'):'Unavailable'],
+      ['Loading before reveal',summary.startupSeconds===null?'Game not revealed':value(summary.startupSeconds,' s')],
+      ['Playing FPS avg / lowest',summary.playback?value(summary.playback.averageFps)+' / '+value(summary.playback.lowestSampleFps):'Game not revealed'],
+      ['Playing freezes / time',summary.playback?value(summary.playback.nativeFreezeCount)+' / '+value(summary.playback.nativeFrozenSeconds,' s'):'Game not revealed'],
+      ['Playing gaps 50–100 ms',summary.playback?.frameTiming?String(summary.playback.frameTiming.callbackIntervals.from50to100):'Unavailable'],
+      ['Playing gaps 100–250 ms',summary.playback?.frameTiming?String(summary.playback.frameTiming.callbackIntervals.from100to250):'Unavailable'],
+      ['Playing browser-reported drops',value(summary.playback?.browserFramesDropped)],
+      ['Video sizes',summary.resolutions.map(r=>r.size).join(' → ')||'Unavailable'],
       ['Requested size / max bitrate',request?`${request.requestedSize} / ${request.desiredMaxKbps} kbps`:'Unavailable'],
       ['Bitrate request / SDK max',request?`${request.bitrateRequestSent?'sent':'not confirmed'} / ${value(request.sdkMaxKbps,' kbps')}`:'Unavailable'],['Decoded FPS avg / lowest',value(summary.averageFps)+' / '+value(summary.lowestSampleFps)],
       ['Incoming FPS / video bitrate',value(summary.averageIncomingFps)+' / '+value(summary.averageKbps,' kbps')],
@@ -11125,7 +11385,8 @@ if(new URLSearchParams(location.search).get('diagnostics')==='1'){
       ['Native freezes / total time',value(summary.nativeFreezeCount)+' / '+value(summary.nativeFrozenSeconds,' s')],
       ['Observed gaps ≥250 ms',metrics.frameSupported?String(summary.observedGapCount):'Unavailable'],['Longest / total observed gaps',metrics.frameSupported?`${summary.longestObservedGapSeconds}s / ${summary.observedGapSeconds}s`:'Unavailable']];
     for(const[label,text]of rows){const dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=label;dd.textContent=text;list.append(dt,dd);}panel.appendChild(list);
-    const note=document.createElement('p');note.textContent='Gaps include video delivery and browser scheduling; these numbers do not identify an Unreal or server cause. Hidden/paused periods are excluded.';panel.appendChild(note);
+    const note=document.createElement('p');note.textContent='Overall measurements include loading. Playing measurements begin at reveal. Gaps include delivery and browser scheduling, and cannot identify an Unreal/server cause. Hidden/paused periods are excluded.';panel.appendChild(note);
+    if(probes){const state=document.createElement('p');state.textContent='Server timing: '+probes.status+'. These samples do not measure Unreal CPU/GPU frame times.';panel.appendChild(state);}
     if(summary.worstGaps.length){const worst=document.createElement('p');worst.textContent='Longest gaps: '+summary.worstGaps.map(g=>`${g.seconds}s at ${g.at}s`).join(' · ');panel.appendChild(worst);}
     const unsupported=document.createElement('p');unsupported.textContent=`Stats issues: ${summary.statsErrors} errors · ${summary.missingPeerPolls} polls without network stats. Screenshot this summary; save the full report if more detail is needed.`;panel.appendChild(unsupported);
     const back=document.createElement('button');back.textContent='BACK';back.type='button';back.onclick=()=>{panel.hidden=true;document.getElementById('hvsSessionScreen').classList.remove('hvs-diagnostics-results');};panel.appendChild(back);
@@ -11134,21 +11395,27 @@ if(new URLSearchParams(location.search).get('diagnostics')==='1'){
     };panel.appendChild(download);
     document.getElementById('hvsSessionScreen').classList.add('hvs-diagnostics-results');panel.hidden=false;
   }
+  function diagnosticSummary(reason){return {...metrics.summary(reason),serverTiming:hvsServerTimingProbe.snapshot(),qpComparison:hvsQPComparisonSnapshot(),startupSeconds:revealedAt===null?null:+((revealedAt-metrics.started)/1000).toFixed(1),startup:startupSummary||metrics.summary('Still loading'),playback:revealedAt===null?null:playbackMetrics.summary(reason)};}
   button.addEventListener('click',show);
   window.homeViewDiagnostics={
-    start(){if(running||finished)return;running=true;metrics.started=Date.now();metrics.note('Game revealed; recording started');poll();},
-    frame(video,now){if(!running||finished)return;metrics.frameSupported=typeof video.requestVideoFrameCallback==='function';if(blocked(video)){metrics.reset();return;}metrics.frame(video,now);},
+    start(){if(running||finished)return;running=true;metrics.started=Date.now();metrics.note('Player created; loading diagnostics started');poll();},
+    markRevealed(){if(!running||finished||revealedAt!==null)return;revealedAt=Date.now();startupSummary=metrics.summary('Loading completed');playbackMetrics.started=revealedAt;metrics.note('Game revealed after sustained playback');hvsServerTimingProbe.start();},
+    frame(video,now,metadata){if(!running||finished)return;metrics.frameSupported=typeof video.requestVideoFrameCallback==='function';playbackMetrics.frameSupported=metrics.frameSupported;if(blocked(video)){metrics.reset();playbackMetrics.reset();return;}if(revealedAt!==null&&playbackMetrics.frameAt!==null&&now-playbackMetrics.frameAt>=100)hvsServerTimingProbe.mark('presentation gap',now-playbackMetrics.frameAt);metrics.frame(video,now,metadata);if(revealedAt!==null)playbackMetrics.frame(video,now,metadata);},
     note(payload){if(!running||finished||!payload||typeof payload!=='object')return;
       if(payload.teleportMap!==undefined)metrics.note('Teleport requested');else if(payload.property!==undefined)metrics.note('Lot change requested');else if(payload.lot==='loaded')metrics.note('Lot loaded');else if(payload.cutscene!==undefined)metrics.note('Movie '+String(payload.cutscene).slice(0,20));},
-    stop(reason){if(finished)return;finished=true;running=false;clearTimeout(timer);metrics.note('Recording stopped');
+    stop(reason){if(finished)return;hvsServerTimingProbe.stop();finished=true;running=false;clearTimeout(timer);metrics.note('Recording stopped');
       if(metrics.frameAt!==null && !blocked()){const tail=(performance.now()-metrics.frameAt)/1000;if(tail>=.25)metrics.gap(tail);}
-      summary=metrics.summary(reason);try{sessionStorage.setItem('hvs-last-mobile-diagnostic',JSON.stringify(summary));}catch(_){}
+      if(revealedAt!==null && playbackMetrics.frameAt!==null && !blocked()){const tail=(performance.now()-playbackMetrics.frameAt)/1000;if(tail>=.25)playbackMetrics.gap(tail);}
+      summary=diagnosticSummary(reason);try{sessionStorage.setItem('hvs-last-mobile-diagnostic',JSON.stringify(summary));}catch(_){}
       button.hidden=false;badge.textContent='TEST COMPLETE · results available after session ends';},
-    snapshot:()=>summary||metrics.summary('recording')
+    snapshot:()=>summary||diagnosticSummary('recording')
   };
-  document.addEventListener('visibilitychange',()=>{if(running){metrics.reset();metrics.note(document.hidden?'Page hidden; measurement paused':'Page visible; baseline reset');}});
+  document.addEventListener('visibilitychange',()=>{if(running){metrics.reset();playbackMetrics.reset();metrics.note(document.hidden?'Page hidden; measurement paused':'Page visible; baseline reset');}});
   window.addEventListener('pagehide',()=>{if(running)window.homeViewDiagnostics.stop('Page left');});
 }
+
+// Production demo keeps its existing automatic intro and connection flow.
+
 
 startLoadingMedia();
 mobileDevStatus('Page loaded; contacting local Unreal stream');
@@ -11180,10 +11447,16 @@ if (dev_mode) {
     // Let the custom sound icon reach Arcware's separate (sometimes detached)
     // WebRTC audio element and its own toggleAudio(video, muted) method.
     window.homeViewArcwareAudioStream = setup.PixelStreaming;
+    // Diagnostic listeners are opt-in; normal visitors get only the tested encoder setting.
+    if(new URLSearchParams(location.search).get('diagnostics')==='1'){
+      hvsServerTimingProbe.bind();
+      setup.PixelStreaming.addEventListener('videoEncoderAvgQP',hvsRecordEncoderQP);
+    }
     application.getApplicationResponse(receiveUnrealResponse);
     homeViewRegisterArcwareConnectionErrors();
     document.getElementById('video-container').appendChild(application.rootElement);
     configureStreamingInputTarget(application.rootElement);
+    window.homeViewDiagnostics?.start();
   } catch (error) { console.error('Arcware initialization failed:', error); }
 }
 
