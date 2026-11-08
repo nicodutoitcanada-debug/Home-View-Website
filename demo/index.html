@@ -10232,11 +10232,8 @@ function receiveUnrealResponse(response) {
     }
     // Unreal may broadcast 'generating' during startup. Ignore it unless the
     // user actually clicked GENERATE IMAGE, preventing a permanent overlay.
-    if(screenshotRequestInFlight && ['createscreenshot','filetransfer'].includes(String(data.type||'').toLowerCase()))handleScreenshotCompleted();
-    if (data.screenshot === 'generating' && screenshotRequestInFlight){
-      hvsScreenshotAcknowledged=true;
+    if (data.screenshot === 'generating' && screenshotRequestInFlight)
       showScreenshotOverlay('Generating high resolution image', true, false);
-    }
     if (data.Game === 'Loaded' && !loadRequested && !levelReady) {
       mobileDevStatus('Game Loaded received; requesting homeViewDemo');
       // Do NOT send until Unreal explicitly declares Game:Loaded.
@@ -10653,113 +10650,65 @@ window.homeViewShowScreenshotPreview=(blob,name='HomeViewScreenshot.png')=>{
 };
 
 // SCREENSHOT RESPONSE & SAVE — mirrors LUX's request/response/save UX.
-let hvsScreenshotPoll=null,hvsScreenshotToken=0,hvsScreenshotBaseline=null,hvsScreenshotIgnoreUntil=0,hvsScreenshotStartedAt=0;
 function showScreenshotOverlay(message,spinner=true,actions=false){
   clearTimeout(screenshotNoticeTimeout);
   const overlay=document.getElementById('screenshotOverlay');
   document.getElementById('overlayText').textContent=message;
   document.getElementById('overlaySpinner').style.display=spinner?'block':'none';
-  document.getElementById('overlayActions').style.display='flex';
-  document.getElementById('saveScreenshotButton').style.display=actions?'inline-flex':'none';
-  document.getElementById('closeScreenshotOverlayButton').textContent=screenshotRequestInFlight?'CANCEL':'CLOSE';
-  overlay.style.pointerEvents=spinner||actions?'auto':'none';
-  overlay.firstElementChild.style.pointerEvents='auto';
+  document.getElementById('overlayActions').style.display=actions?'flex':'none';
   overlay.style.display='flex';
 }
 function hideScreenshotOverlay(){
   clearTimeout(screenshotNoticeTimeout);
-  if(screenshotRequestInFlight)hvsScreenshotIgnoreUntil=Math.max(Date.now()+1000,hvsScreenshotStartedAt+SCREENSHOT_TIMEOUT_MS);
-  hvsScreenshotToken++;screenshotFinishWaiting();
   document.getElementById('screenshotOverlay').style.display='none';
-  screenshotBlob=null;screenshotName='';
-  // Closing/cancelling releases the browser UI. The Unreal capture itself may
-  // still finish; ignore its late result and avoid overlapping untagged captures.
-  hvsScreenshotProtectionUntil=Date.now()+1500;
-  clearTimeout(hvsScreenshotReturnCheck);hvsScreenshotReturnCheck=null;
-  releaseUiFocus();
+  // Exactly as in LUX: closing the image dialog does not call play(),
+  // reconnect(), or r.SetRes. Let Arcware's built-in player resume naturally.
+  screenshotBlob=null;
+  screenshotName='';
+  hvsScreenshotProtect();
 }
 function screenshotNotice(message,ms=3500){
   showScreenshotOverlay(message,false,false);
   screenshotNoticeTimeout=setTimeout(hideScreenshotOverlay,ms);
 }
 function screenshotFinishWaiting(){
-  clearTimeout(screenshotTimeout);screenshotTimeout=null;
-  clearTimeout(hvsScreenshotPoll);hvsScreenshotPoll=null;screenshotRequestInFlight=false;
-}
-// Keep Arcware's native receiver intact; inspect all file locations because
-// wrapper objects differ between the Arcware and Epic streaming clients.
-function hvsScreenshotFilesFromSdk(){
-  const candidates=[
-    application?.webRtcController?.file,
-    application?.stream?.webRtcController?.file,
-    window.homeViewArcwareAudioStream?.webRtcController?.file,
-    window.homeViewArcwareAudioStream?.file,
-    application?.file,application?.stream?.file,
-    localApp?.webRtcController?.file,localStream?.webRtcController?.file,
-    localApp?.file,localStream?.file,localStream?.latestScreenshotFile,
-    window.file
-  ];
-  return [...new Set(candidates.filter(Boolean))];
-}
-function hvsScreenshotByteCount(data){
-  if(data instanceof Blob)return data.size;
-  if(data instanceof ArrayBuffer)return data.byteLength;
-  if(ArrayBuffer.isView(data))return data.byteLength;
-  if(Array.isArray(data)){
-    if(data.every(v=>typeof v==='number'))return data.length;
-    return data.reduce((sum,chunk)=>sum+hvsScreenshotByteCount(chunk),0);
-  }
-  return 0;
-}
-function hvsScreenshotFileComplete(file){
-  if(!file||file.data==null||file.receiving===true||file.valid===false)return false;
-  if(file.mimetype&&!/^image\//i.test(file.mimetype))return false;
-  return hvsScreenshotByteCount(file.data)>0;
-}
-function hvsScreenshotFileFresh(file){
-  if(!file)return false;
-  const old=hvsScreenshotBaseline?.find(item=>item.file===file);
-  if(!old)return true;
-  return file.data!==old.data||
-    (typeof file.timestampStart==='number'&&file.timestampStart>old.timestamp)||
-    hvsScreenshotByteCount(file.data)!==old.bytes||
-    (Array.isArray(file.data)&&file.data.length!==old.chunks)||
-    (old.receiving===true&&file.receiving===false);
+  clearTimeout(screenshotTimeout);screenshotTimeout=null;screenshotRequestInFlight=false;
 }
 function screenshotFileFromSdk(){
-  const files=hvsScreenshotFilesFromSdk();
-  return files.find(file=>hvsScreenshotFileFresh(file)&&hvsScreenshotFileComplete(file))||
-    files.find(file=>hvsScreenshotFileFresh(file))||files[0]||null;
+  return application?.webRtcController?.file
+    || application?.stream?.webRtcController?.file
+    || localApp?.webRtcController?.file
+    || localStream?.webRtcController?.file
+    || localStream?.file || localStream?.latestScreenshotFile || window.file;
 }
-function handleScreenshotCompleted(){
-  const file=screenshotFileFromSdk();
-  if(!screenshotRequestInFlight){
-    if(hvsScreenshotIgnoreUntil&&hvsScreenshotFileFresh(file)&&hvsScreenshotFileComplete(file))hvsScreenshotIgnoreUntil=0;
+async function handleScreenshotCompleted(){
+  // Give the SDK a short moment to finish copying the inbound binary file.
+  let file=screenshotFileFromSdk();
+  for(let i=0;i<12 && (!file||!file.data);i++){
+    await new Promise(resolve=>setTimeout(resolve,150));
+    file=screenshotFileFromSdk();
+  }
+  if(!screenshotRequestInFlight)return;
+  screenshotFinishWaiting();
+  if(!file?.data){
+    screenshotNotice('Image generated, but no file was returned by the streaming SDK. Please try again.',5500);
     return;
   }
-  if(!hvsScreenshotFileFresh(file)||!hvsScreenshotFileComplete(file))return;
   try{
     const data=file.data;
-    const parts=Array.isArray(data)
-      ? (data.every(v=>typeof v==='number')?[new Uint8Array(data)]:data)
-      : [data];
-    const blob=data instanceof Blob?data:new Blob(parts,{type:file.mimetype||'image/png'});
-    if(!blob.size)return;
-    screenshotFinishWaiting();screenshotBlob=blob;
-    const raw=String(file.extension||'png').replace(/^\./,'');
-    const ext=/^[a-zA-Z0-9]{1,8}$/.test(raw)?'.'+raw:'.png';
+    screenshotBlob = data instanceof Blob ? data : new Blob(
+      Array.isArray(data)?data:[data],{type:file.mimetype||'image/png'});
+    const ext=/^\.[a-zA-Z0-9]+$/.test(file.extension||'')?file.extension:'.png';
     screenshotName='screenshot'+String(screenshotCounter).padStart(2,'0')+ext;
     showScreenshotOverlay('Image generated successfully. Click SAVE IMAGE.',false,true);
+    // LUX displays the Save button and waits. A recovery watchdog must not
+    // fire while the user's native Share/Save dialog has suspended the stream.
     hvsScreenshotProtect();
-  }catch(error){screenshotFinishWaiting();console.error('[SCREENSHOT] Unable to read file:',error);screenshotNotice('Unable to prepare the screenshot. Please try again.',4500);}
+  }catch(error){
+    console.error('[SCREENSHOT] Unable to read file:',error);
+    screenshotNotice('Unable to prepare the screenshot. Please try again.',4500);
+  }
 }
-function hvsPollScreenshot(token){
-  if(token!==hvsScreenshotToken||!screenshotRequestInFlight)return;
-  handleScreenshotCompleted();
-  if(screenshotRequestInFlight)hvsScreenshotPoll=setTimeout(()=>hvsPollScreenshot(token),200);
-}
-// Leave application.fileDownloadCallback unmodified. Arcware's own handler
-// must finish receiving the image before the UI can offer Save Image.
 function downloadScreenshotBlob(blob,filename){
   // Identical to the proven LUX save fallback: a native browser download.
   const url=URL.createObjectURL(blob);
@@ -10770,7 +10719,6 @@ function downloadScreenshotBlob(blob,filename){
 }
 async function savePendingScreenshot(){
   if(!screenshotBlob){screenshotNotice('No screenshot is ready to save.',2500);return;}
-  const saveToken=hvsScreenshotToken;
   const blob=screenshotBlob,name=screenshotName||'screenshot.png';
   // In an installed home-screen app, SAVE opens our own preview rather than
   // sending the browser to a new tab or fullscreen image/download viewer.
@@ -10795,12 +10743,10 @@ async function savePendingScreenshot(){
       const writable=await handle.createWritable();
       await writable.write(blob);await writable.close();
     }else downloadScreenshotBlob(blob,name);
-    if(saveToken!==hvsScreenshotToken)return;
     screenshotBlob=null;screenshotName='';screenshotCounter++;
     screenshotNotice('Your image has been saved.',2200);
     hvsScreenshotProtect();
   }catch(err){
-    if(saveToken!==hvsScreenshotToken)return;
     if(err?.name==='AbortError'){
       showScreenshotOverlay('Save cancelled. Click SAVE IMAGE to try again.',false,true);
       return;
@@ -10816,60 +10762,31 @@ async function savePendingScreenshot(){
     }
   }
 }
-// The SDK serializes descriptors itself. Passing JSON text here quotes the
-// entire request on the wire; send the screenshot descriptor as an object once.
-let hvsScreenshotAcknowledged=false;
-function hvsSendScreenshotRequest(){
-  if(window.homeViewSessionIntentional || homeViewTeardownStarted)return false;
-  const stream=dev_mode?localStream:(window.homeViewArcwareAudioStream||application?.stream);
-  if(stream&&typeof stream.emitUIInteraction==='function'){
-    try{if(stream.emitUIInteraction({frontEnd:'screenshot'})!==false)return true;}
-    catch(error){console.warn('[SCREENSHOT] Native send failed; trying regular transport:',error);}
-  }
-  return sendUnreal({frontEnd:'screenshot'});
-}
-function hvsScreenshotFailureMessage(){
-  const file=screenshotFileFromSdk();
-  if(hvsScreenshotFileFresh(file)&&file?.receiving===true)
-    return 'The image transfer did not finish. You can continue exploring and try again.';
-  if(hvsScreenshotAcknowledged)
-    return 'Unreal started the screenshot but returned no complete image. You can continue exploring.';
-  return 'No screenshot reply was received from Unreal. You can continue exploring.';
-}
 function requestHomeViewScreenshot(){
   if(screenshotRequestInFlight)return;
-  if(hvsScreenshotIgnoreUntil>Date.now()){
-    handleScreenshotCompleted();
-    if(hvsScreenshotIgnoreUntil>Date.now()){screenshotNotice('The previous image is still finishing. You can continue exploring and try again shortly.');return;}
-  }
-  clearTimeout(screenshotNoticeTimeout);screenshotBlob=null;screenshotName='';
+  clearTimeout(screenshotNoticeTimeout);
+  screenshotBlob=null;screenshotName='';
   if(!levelReady){screenshotNotice('The game is still loading. Please try again shortly.');return;}
-  hvsScreenshotBaseline=hvsScreenshotFilesFromSdk().map(file=>({
-    file,data:file.data,timestamp:file.timestampStart||0,
-    bytes:hvsScreenshotByteCount(file.data),
-    chunks:Array.isArray(file.data)?file.data.length:null,
-    receiving:file.receiving
-  }));
-  hvsScreenshotAcknowledged=false;
-  const token=++hvsScreenshotToken;hvsScreenshotStartedAt=Date.now();screenshotRequestInFlight=true;
-  hvsScreenshotProtect();showScreenshotOverlay('Generating high resolution image',true,false);
-  screenshotTimeout=setTimeout(()=>{
-    if(token!==hvsScreenshotToken||!screenshotRequestInFlight)return;
-    hvsScreenshotToken++;screenshotFinishWaiting();
-    hvsScreenshotIgnoreUntil=Date.now()+5000;
-    screenshotNotice(hvsScreenshotFailureMessage(),12000);
-  },SCREENSHOT_TIMEOUT_MS);
-  // One native object request; never send both object and legacy text copies.
-  if(!hvsSendScreenshotRequest()){
-    screenshotFinishWaiting();screenshotNotice('Unable to request a screenshot. Please check the streaming connection.');return;
+  screenshotRequestInFlight=true;
+  hvsScreenshotProtect();
+  showScreenshotOverlay('Generating high resolution image',true,false);
+  // Identical message used by the older working LUX front end.
+  if(!sendUnreal({frontEnd:'screenshot'})){
+    screenshotFinishWaiting();
+    screenshotNotice('Unable to request a screenshot. Please check the streaming connection.');
+    return;
   }
-  hvsPollScreenshot(token);
+  screenshotTimeout=setTimeout(()=>{
+    if(!screenshotRequestInFlight)return;
+    screenshotFinishWaiting();
+    screenshotNotice('The screenshot took too long. Please try again.',5000);
+  },SCREENSHOT_TIMEOUT_MS);
 }
 // A click goes only to the camera's existing GENERATE IMAGE button.
 document.getElementById('generateImageButton')?.addEventListener('click',requestHomeViewScreenshot);
 document.getElementById('saveScreenshotButton')?.addEventListener('click',savePendingScreenshot);
 document.getElementById('closeScreenshotOverlayButton')?.addEventListener('click',hideScreenshotOverlay);
-window.homeViewScreenshotDebug=()=>({waiting:screenshotRequestInFlight,ready:!!screenshotBlob,acknowledged:hvsScreenshotAcknowledged,timeoutMs:SCREENSHOT_TIMEOUT_MS, LuxSafeNativeSave:true, protectionSeconds:Math.max(0,Math.ceil((hvsScreenshotProtectionUntil-Date.now())/1000))});
+window.homeViewScreenshotDebug=()=>({waiting:screenshotRequestInFlight,ready:!!screenshotBlob,timeoutMs:SCREENSHOT_TIMEOUT_MS, LuxSafeNativeSave:true, protectionSeconds:Math.max(0,Math.ceil((hvsScreenshotProtectionUntil-Date.now())/1000))});
 
 // Local development mode: the EXACT library-based connection pattern used
 // by your existing working LUX Visualizer project (not a custom WebRTC client).
