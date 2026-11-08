@@ -10653,7 +10653,7 @@ window.homeViewShowScreenshotPreview=(blob,name='HomeViewScreenshot.png')=>{
 };
 
 // SCREENSHOT RESPONSE & SAVE — mirrors LUX's request/response/save UX.
-let hvsScreenshotPoll=null,hvsScreenshotToken=0,hvsScreenshotBaseline=null,hvsScreenshotIgnoreUntil=0,hvsScreenshotStartedAt=0,hvsScreenshotOwnTransfer=false;
+let hvsScreenshotPoll=null,hvsScreenshotToken=0,hvsScreenshotBaseline=null,hvsScreenshotIgnoreUntil=0,hvsScreenshotStartedAt=0;
 function showScreenshotOverlay(message,spinner=true,actions=false){
   clearTimeout(screenshotNoticeTimeout);
   const overlay=document.getElementById('screenshotOverlay');
@@ -10686,21 +10686,50 @@ function screenshotFinishWaiting(){
   clearTimeout(screenshotTimeout);screenshotTimeout=null;
   clearTimeout(hvsScreenshotPoll);hvsScreenshotPoll=null;screenshotRequestInFlight=false;
 }
-function screenshotFileFromSdk(){
-  const sources=[window.homeViewArcwareAudioStream,application?.stream,application,localStream,localApp];
-  for(const s of sources){const f=s?.webRtcController?.file||s?.file||s?.latestScreenshotFile;if(f?.data)return f;}
-  return window.file||null;
+// Keep Arcware's native receiver intact; inspect all file locations because
+// wrapper objects differ between the Arcware and Epic streaming clients.
+function hvsScreenshotFilesFromSdk(){
+  const candidates=[
+    application?.webRtcController?.file,
+    application?.stream?.webRtcController?.file,
+    window.homeViewArcwareAudioStream?.webRtcController?.file,
+    window.homeViewArcwareAudioStream?.file,
+    application?.file,application?.stream?.file,
+    localApp?.webRtcController?.file,localStream?.webRtcController?.file,
+    localApp?.file,localStream?.file,localStream?.latestScreenshotFile,
+    window.file
+  ];
+  return [...new Set(candidates.filter(Boolean))];
+}
+function hvsScreenshotByteCount(data){
+  if(data instanceof Blob)return data.size;
+  if(data instanceof ArrayBuffer)return data.byteLength;
+  if(ArrayBuffer.isView(data))return data.byteLength;
+  if(Array.isArray(data)){
+    if(data.every(v=>typeof v==='number'))return data.length;
+    return data.reduce((sum,chunk)=>sum+hvsScreenshotByteCount(chunk),0);
+  }
+  return 0;
 }
 function hvsScreenshotFileComplete(file){
-  if(!file?.data||file.receiving===true||file.valid===false)return false;
+  if(!file||file.data==null||file.receiving===true||file.valid===false)return false;
   if(file.mimetype&&!/^image\//i.test(file.mimetype))return false;
-  if(file.data instanceof Blob)return file.data.size>0;
-  if(Array.isArray(file.data))return file.data.length>0&&file.data.some(c=>(c?.byteLength??c?.size??0)>0);
-  return (file.data.byteLength??0)>0;
+  return hvsScreenshotByteCount(file.data)>0;
 }
 function hvsScreenshotFileFresh(file){
-  return !!file&&(!hvsScreenshotBaseline||file!==hvsScreenshotBaseline.file||file.data!==hvsScreenshotBaseline.data||
-    (typeof file.timestampStart==='number'&&file.timestampStart>hvsScreenshotBaseline.timestamp));
+  if(!file)return false;
+  const old=hvsScreenshotBaseline?.find(item=>item.file===file);
+  if(!old)return true;
+  return file.data!==old.data||
+    (typeof file.timestampStart==='number'&&file.timestampStart>old.timestamp)||
+    hvsScreenshotByteCount(file.data)!==old.bytes||
+    (Array.isArray(file.data)&&file.data.length!==old.chunks)||
+    (old.receiving===true&&file.receiving===false);
+}
+function screenshotFileFromSdk(){
+  const files=hvsScreenshotFilesFromSdk();
+  return files.find(file=>hvsScreenshotFileFresh(file)&&hvsScreenshotFileComplete(file))||
+    files.find(file=>hvsScreenshotFileFresh(file))||files[0]||null;
 }
 function handleScreenshotCompleted(){
   const file=screenshotFileFromSdk();
@@ -10711,7 +10740,10 @@ function handleScreenshotCompleted(){
   if(!hvsScreenshotFileFresh(file)||!hvsScreenshotFileComplete(file))return;
   try{
     const data=file.data;
-    const blob=data instanceof Blob?data:new Blob(Array.isArray(data)?data:[data],{type:file.mimetype||'image/png'});
+    const parts=Array.isArray(data)
+      ? (data.every(v=>typeof v==='number')?[new Uint8Array(data)]:data)
+      : [data];
+    const blob=data instanceof Blob?data:new Blob(parts,{type:file.mimetype||'image/png'});
     if(!blob.size)return;
     screenshotFinishWaiting();screenshotBlob=blob;
     const raw=String(file.extension||'png').replace(/^\./,'');
@@ -10726,17 +10758,8 @@ function hvsPollScreenshot(token){
   handleScreenshotCompleted();
   if(screenshotRequestInFlight)hvsScreenshotPoll=setTimeout(()=>hvsPollScreenshot(token),200);
 }
-function hvsInstallScreenshotTransferHandler(){
-  // Arcware otherwise auto-downloads typed screenshot controls, bypassing the
-  // user-activated Save button. Preserve its handler for unrelated file types.
-  const original=application.fileDownloadCallback;
-  application.fileDownloadCallback=function(response){
-    let data=response;try{if(typeof data==='string')data=JSON.parse(data);}catch(_){}
-    const type=String(data?.type||'').toLowerCase();
-    if((type==='createscreenshot'&&hvsScreenshotOwnTransfer)||((screenshotRequestInFlight||hvsScreenshotIgnoreUntil>Date.now())&&/^image\//i.test(screenshotFileFromSdk()?.mimetype||''))){handleScreenshotCompleted();if(hvsScreenshotFileComplete(screenshotFileFromSdk()))hvsScreenshotOwnTransfer=false;return;}
-    return original?.call(this,response);
-  };
-}
+// Leave application.fileDownloadCallback unmodified. Arcware's own handler
+// must finish receiving the image before the UI can offer Save Image.
 function downloadScreenshotBlob(blob,filename){
   // Identical to the proven LUX save fallback: a native browser download.
   const url=URL.createObjectURL(blob);
@@ -10799,9 +10822,11 @@ let hvsScreenshotAcknowledged=false;
 function hvsSendScreenshotRequest(){
   if(window.homeViewSessionIntentional || homeViewTeardownStarted)return false;
   const stream=dev_mode?localStream:(window.homeViewArcwareAudioStream||application?.stream);
-  if(!stream||typeof stream.emitUIInteraction!=='function')return false;
-  try{return stream.emitUIInteraction({frontEnd:'screenshot'})!==false;}
-  catch(error){console.warn('[SCREENSHOT] Request failed:',error);return false;}
+  if(stream&&typeof stream.emitUIInteraction==='function'){
+    try{if(stream.emitUIInteraction({frontEnd:'screenshot'})!==false)return true;}
+    catch(error){console.warn('[SCREENSHOT] Native send failed; trying regular transport:',error);}
+  }
+  return sendUnreal({frontEnd:'screenshot'});
 }
 function hvsScreenshotFailureMessage(){
   const file=screenshotFileFromSdk();
@@ -10819,10 +10844,14 @@ function requestHomeViewScreenshot(){
   }
   clearTimeout(screenshotNoticeTimeout);screenshotBlob=null;screenshotName='';
   if(!levelReady){screenshotNotice('The game is still loading. Please try again shortly.');return;}
-  const file=screenshotFileFromSdk();
-  hvsScreenshotBaseline=file?{file,data:file.data,timestamp:file.timestampStart||0}:null;
+  hvsScreenshotBaseline=hvsScreenshotFilesFromSdk().map(file=>({
+    file,data:file.data,timestamp:file.timestampStart||0,
+    bytes:hvsScreenshotByteCount(file.data),
+    chunks:Array.isArray(file.data)?file.data.length:null,
+    receiving:file.receiving
+  }));
   hvsScreenshotAcknowledged=false;
-  const token=++hvsScreenshotToken;hvsScreenshotStartedAt=Date.now();hvsScreenshotOwnTransfer=true;screenshotRequestInFlight=true;
+  const token=++hvsScreenshotToken;hvsScreenshotStartedAt=Date.now();screenshotRequestInFlight=true;
   hvsScreenshotProtect();showScreenshotOverlay('Generating high resolution image',true,false);
   screenshotTimeout=setTimeout(()=>{
     if(token!==hvsScreenshotToken||!screenshotRequestInFlight)return;
@@ -10832,7 +10861,7 @@ function requestHomeViewScreenshot(){
   },SCREENSHOT_TIMEOUT_MS);
   // One native object request; never send both object and legacy text copies.
   if(!hvsSendScreenshotRequest()){
-    hvsScreenshotOwnTransfer=false;screenshotFinishWaiting();screenshotNotice('Unable to request a screenshot. Please check the streaming connection.');return;
+    screenshotFinishWaiting();screenshotNotice('Unable to request a screenshot. Please check the streaming connection.');return;
   }
   hvsPollScreenshot(token);
 }
@@ -11526,7 +11555,7 @@ if (dev_mode) {
       hvsServerTimingProbe.bind();
       setup.PixelStreaming.addEventListener('videoEncoderAvgQP',hvsRecordEncoderQP);
     }
-    hvsInstallScreenshotTransferHandler();
+    // Preserve Arcware's native file download/transfer handler.
     application.getApplicationResponse(receiveUnrealResponse);
     homeViewRegisterArcwareConnectionErrors();
     document.getElementById('video-container').appendChild(application.rootElement);
