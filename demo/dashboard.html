@@ -143,6 +143,7 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
  <div class="hvs-push-actions">
   <button class="btn btn-small btn-primary" id="hvsPushEnable" type="button" disabled>Enable phone alerts</button>
   <button class="btn btn-small" id="hvsPushTest" type="button" disabled>Send test alert</button>
+   <button class="btn btn-small btn-primary" id="hvsPushGroupTest" type="button" disabled>Send group test alert</button>
  </div>
 </section>
 <section><div class="section-heading"><h2>At a glance</h2><span id="asOfText">LIVE SALES SNAPSHOT</span></div><div class="metrics">
@@ -159,7 +160,7 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 <div class="modal-backdrop" id="connectModal" role="presentation"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="connectTitle"><div class="modal-top"><h2 id="connectTitle">Connect live buyer data</h2><button class="iconbtn" id="closeModal" aria-label="Close" type="button"><svg><use href="#i-close"/></svg></button></div><p>Your buyer records are stored separately in Supabase, not inside the Home View HTML. Sign in with a Supabase dashboard account that has database permission.</p><form id="connectForm"><label for="supabaseUrl">SUPABASE PROJECT URL</label><input id="supabaseUrl" type="url" placeholder="https://your-project.supabase.co" autocomplete="url" required><label for="supabaseKey">PUBLISHABLE / ANON KEY</label><input id="supabaseKey" type="text" placeholder="sb_publishable_... or legacy anon key" autocomplete="off" required><label for="adminEmail">DASHBOARD ADMIN EMAIL</label><input id="adminEmail" type="email" autocomplete="username" placeholder="you@example.com" required><label for="adminPassword">DASHBOARD ADMIN PASSWORD</label><input id="adminPassword" type="password" autocomplete="current-password" placeholder="Supabase Auth password" required><div class="modal-msg" id="loginMessage" role="status"></div><div class="modal-actions"><button type="submit" class="btn btn-primary" id="loginSubmit">Connect and sign in <svg><use href="#i-arrow"/></svg></button><button type="button" class="btn" id="demoBtn">Use sample data</button></div></form><div class="tip">Only your public project URL and publishable key are remembered on this browser. Your password is never saved here. Never paste a service_role / secret key into a webpage.</div></div></div>
 <div class="toast-wrap" id="toastWrap" aria-live="polite"></div>
 <script src="dashboard-config.js"></script>
-<script src="dashboard-push.js"></script>
+<script src="dashboard-push.js?v=20261110-group-alerts-1"></script>
 <script>
 (()=>{'use strict';
   const $=id=>document.getElementById(id);
@@ -192,6 +193,7 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
   function render(){
     $('hvsPushEnable').disabled=state.mode!=='live';
     $('hvsPushTest').disabled=state.mode!=='live';
+     $('hvsPushGroupTest').disabled=state.mode!=='live';
     $('connLabel').textContent=state.mode==='live'?'LIVE · SUPABASE':'DEMO DATA';$('connStatus').classList.toggle('live',state.mode==='live');
     $('connectBtn').textContent=state.mode==='live'?'Account / Disconnect':'Connect live data';
     $('modeBanner').innerHTML=state.mode==='live'?'You are viewing <strong>live Supabase records.</strong> New leads will appear automatically when submitted. Buyer records are accessible only to approved dashboard users.':'<strong>Presentation preview.</strong> These are fictional buyer records for layout demonstration. Click “Connect live data” to access Sarah Mitchell and genuine future submissions.';
@@ -268,6 +270,7 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
   document.querySelectorAll('[data-nav]').forEach(btn=>btn.addEventListener('click',()=>{const id=btn.dataset.nav;if(id==='settings')showModal();else $(id)?.scrollIntoView({behavior:'smooth',block:'start'});document.querySelectorAll('[data-nav]').forEach(n=>n.classList.toggle('active',n===btn))}));
   $('hvsPushEnable').addEventListener('click',()=>window.HVS_PHONE_PUSH?.enable(state.client));
   $('hvsPushTest').addEventListener('click',()=>window.HVS_PHONE_PUSH?.test(state.client));
+   $('hvsPushGroupTest').addEventListener('click',()=>window.HVS_PHONE_PUSH?.testGroup(state.client));
   render();if(creds.url&&creds.key){resumeLiveSession();}
 })();
 </script>

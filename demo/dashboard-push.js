@@ -60,5 +60,18 @@
       status('Test notification accepted for '+result.sent+' device(s). Check your phone.');
     }catch(error){console.error('[HVS PUSH TEST]',error);status('Test failed: '+(error?.message||error));}
   }
-  window.HVS_PHONE_PUSH={enable,test};
+  async function testGroup(client){
+    if(!client){status('Connect live buyer data first.');return;}
+    try{
+      status('Sending one group test alert to every approved team phone…');
+      const result=await request(client,'POST',{action:'test-group'});
+      status('Group test accepted by '+result.sent+' of '+result.total+
+        ' registered phone(s).'+(result.failed?' '+result.failed+' failed; re-enable alerts on those phones.':
+        ' Check the phones, including while the Home View app is closed.'));
+    }catch(error){
+      console.error('[HVS PUSH GROUP TEST]',error);
+      status('Group test failed: '+(error?.message||error));
+    }
+  }
+  window.HVS_PHONE_PUSH={enable,test,testGroup};
 })();
