@@ -131,29 +131,12 @@
       const reply=await res.json().catch(()=>({}));
       if(!res.ok || !reply.ok)throw new Error(reply.error||'Unable to save online.');
       window.HVSBuyerAuth?.setSavedLeadId?.(reply.id||payload.id);
-      // The existing lead receiver confirms database persistence first.
-      // Branded PWA notification delivery is separate: a push failure never loses the lead.
-      let phoneNote='No registered phone alerts yet.';
-      if(payload.id){
-        try {
-          const pushRes=await fetchWithTimeout(url+'/functions/v1/hvs-push-deliver',{
-            method:'POST',
-            headers,
-            body:JSON.stringify({id:reply.id||payload.id}),
-            cache:'no-store'
-          },6500);
-          const push=await pushRes.json().catch(()=>({}));
-          if(!pushRes.ok||!push.ok)throw new Error(push.error||'Phone push delivery failed.');
-          phoneNote={
-            sent:'Home View phone notification sent.',
-            already_sent:'No duplicate notification needed.',
-            no_subscribers:'No phones subscribed to Home View alerts yet.',
-            not_configured:'Phone alerts not yet activated.',
-            failed:'Saved, but phone notification failed.',
-            not_requested:'Sales contact not requested.'
-          }[push.push]||'Saved, phone notification status unknown.';
-        }catch(e){console.warn('[HVS LEADS] Web Push failed',e);phoneNote='Saved, but phone alert could not be confirmed.';}
-      }
+      // Notification dispatch is owned by the server after a confirmed save.
+      // Do not send another browser-side push request (older cached clients
+      // are still protected by per-event/per-phone receipts on the server).
+      const phoneNote=reply.push==='queued'
+        ? 'Group alerts queued for all registered team phones.'
+        : 'Design saved; group notification not confirmed. Check the dashboard group test.';
       status('Saved to Supabase. '+phoneNote);
       return reply;
     };
