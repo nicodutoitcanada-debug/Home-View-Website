@@ -123,13 +123,8 @@ document.addEventListener('DOMContentLoaded',()=>{
       const response=await fetch(base().url+'/functions/v1/hvs-submit-lead',{method:'POST',headers:common,body:JSON.stringify(payload)});
       const result=await response.json().catch(()=>({}));
       if(!response.ok||!result.ok)throw Error(result.error||'Lead submission was not confirmed.');
-      setStatus('leadStatus','Saved to Supabase. Checking phone alert and reading back the saved information…','good');
-      let push='not checked';
-      try{
-        const p=await fetch(base().url+'/functions/v1/hvs-push-deliver',{method:'POST',headers:common,body:JSON.stringify({id})});
-        const pr=await p.json().catch(()=>({}));
-        push=p.ok&&pr.ok?pr.push||'unknown':pr.error||'not confirmed';
-      }catch(e){push='could not confirm: '+e.message;}
+      setStatus('leadStatus','Saved to Supabase. Group alerts queued server-side; verifying the saved design…','good');
+      const push=result.push==='queued'?'queued for all registered phones':(result.push||'not confirmed');
       const query='?select=id,buyer_name,home_model,total_price,saved_configuration,contact_requested&id=eq.'+encodeURIComponent(id);
       const check=await fetch(base().url+'/rest/v1/hvs_buyer_leads'+query,{headers:common});
       const rows=await check.json().catch(()=>[]);
