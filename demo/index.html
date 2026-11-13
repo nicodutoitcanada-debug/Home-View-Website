@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8" />
 <!-- HVS launch freshness: refresh once before starting a new stream. -->
-<meta name="hvs-release" content="2026-11-08-refresh-1">
+<meta name="hvs-release" content="2026-11-13-facade-front-1">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function(){
@@ -16,7 +16,7 @@
     url.searchParams.delete('_hvs_launch');
     history.replaceState(history.state,'',url.href);
   }
-  window.homeViewRelease='2026-11-08-refresh-1';
+  window.homeViewRelease='2026-11-13-facade-front-1';
 })();
 </script>
 
@@ -5081,6 +5081,34 @@ document.addEventListener('DOMContentLoaded',()=>{
 },{once:true});
 </script>
 
+<style id="hvs-facade-front-style">
+#editOptionButtons.hvsFacadeGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+#editOptionButtons.hvsFacadeGrid .hvsFacadeOption{min-width:0;display:flex;flex-direction:column;gap:5px;align-items:center;min-height:0;padding:7px 5px;border-radius:13px}
+#editOptionButtons .hvsFacadeOption img{width:100%;height:70px;object-fit:contain;display:block;flex-shrink:0}
+#editOptionButtons .hvsFacadeName{font-size:11px;line-height:1.13;text-align:center;min-height:24px;letter-spacing:0}
+#editOptionButtons .hvsFacadeCost{font-size:11px;font-weight:700;line-height:1.1;color:#ffc0a1;white-space:nowrap}
+#editOptionButtons.hvsFacadeGrid>.editOptionButton:not(.hvsFacadeOption){grid-column:1/-1}
+/* Only the currently chosen facade has the orange selection background. */
+#homeViewUI #editOptionButtons.hvsFacadeGrid > button.hvsFacadeOption{
+ background:linear-gradient(155deg,rgba(230,235,238,.09),rgba(14,23,29,.36) 48%,rgba(8,15,21,.48));
+ border:1px solid rgba(236,242,244,.22);box-shadow:inset 0 1px 0 rgba(255,255,255,.09);color:rgba(255,255,255,.94)
+}
+#homeViewUI #editOptionButtons.hvsFacadeGrid > button.hvsFacadeOption:not(.is-selected):is(:hover,:focus-visible){
+ background:linear-gradient(155deg,rgba(255,255,255,.16),rgba(22,33,39,.46) 65%,rgba(8,15,21,.5));
+ border-color:rgba(255,255,255,.46)
+}
+#homeViewUI #editOptionButtons.hvsFacadeGrid > button.hvsFacadeOption.is-selected,
+#homeViewUI #editOptionButtons.hvsFacadeGrid > button.hvsFacadeOption.is-selected:is(:hover,:focus-visible){
+ background:linear-gradient(150deg,rgba(233,78,27,.57),rgba(168,51,17,.58));
+ border-color:rgba(255,86,33,.96);box-shadow:inset 0 1px 0 rgba(255,255,255,.13),0 0 0 1px rgba(255,95,39,.19)
+}
+#homeViewUI #editOptionButtons.hvsFacadeGrid > button.hvsFacadeOption:disabled{opacity:.8}
+#hvsFacadeLoadingOverlay{position:fixed;inset:0;z-index:17001;display:flex;align-items:center;justify-content:center;padding:24px;box-sizing:border-box;opacity:0;visibility:hidden;pointer-events:none;background:rgba(0,0,0,.12);transition:opacity .25s ease,visibility 0s linear .25s}
+#hvsFacadeLoadingOverlay.is-open{opacity:1;visibility:visible;pointer-events:auto;transition-delay:0s}
+#hvsFacadeLoadingCard{width:min(340px,100%);padding:28px 24px;text-align:center;box-sizing:border-box;border-radius:24px;color:rgba(255,255,255,.96);font-family:'HomeView Myriad',Arial,sans-serif;border:1px solid rgba(255,255,255,.22);background:linear-gradient(150deg,rgba(91,103,105,.53),rgba(28,35,38,.78) 48%,rgba(15,22,26,.83));backdrop-filter:blur(12px) saturate(120%);-webkit-backdrop-filter:blur(12px) saturate(120%);box-shadow:0 20px 62px rgba(0,0,0,.30),inset 0 1px 0 rgba(255,255,255,.14)}
+#hvsFacadeLoadingCard h2{margin:17px 0 5px;font-size:20px;font-weight:600}
+#hvsFacadeLoadingCard p{margin:0;font-size:14px;line-height:1.4;color:rgba(255,255,255,.8)}
+</style>
 <style id="hvs-lot-loading-style">
 #hvsLotLoadingOverlay{position:fixed;inset:0;z-index:17000;display:flex;align-items:center;justify-content:center;padding:24px;box-sizing:border-box;opacity:0;visibility:hidden;pointer-events:none;background:rgba(0,0,0,.12);transition:opacity .4s ease,visibility 0s linear .4s;touch-action:none}
 #hvsLotLoadingOverlay.is-open{opacity:1;visibility:visible;pointer-events:auto;transition-delay:0s}
@@ -5991,6 +6019,12 @@ const profileMenuCloseButton = document.getElementById('profileMenuCloseButton')
 // Unreal sends: { "EditMenuOptions": "GroundLiving" } etc.
 // Keep the most recent room even when this menu is closed.
 // ================================================================
+const HVS_FACADE_CHOICES=Object.freeze([
+    {id:'01',label:'Modern Farmhouse',file:'ext_opt_01.png',estimate:0},
+    {id:'02',label:'Warm Contemporary',file:'ext_opt_02.png',estimate:4500},
+    {id:'03',label:'Craftsman',file:'ext_opt_03.png',estimate:8500},
+    {id:'04',label:'Urban Modern',file:'ext_opt_04.png',estimate:12000}
+]);
 const EDIT_MENU_BUTTONS_BY_ROOM = Object.freeze({
     GroundLiving:      ['FLOORING', 'CARPETS', 'KITCHEN', 'RAILING'],
     Kitchen:           ['FLOORING', 'KITCHEN'],
@@ -6003,14 +6037,15 @@ const EDIT_MENU_BUTTONS_BY_ROOM = Object.freeze({
     MainBedWashroom:   ['CUPBOARD', 'COUNTER', 'BACK SPLASH', 'FLOORING'],
     FloorsOnly:        ['CARPETS'],
     FloorsOnlyMainBed: ['FLOORING'],
-    Outside:           ['CLADDING', 'LANDSCAPING', 'CHOOSE PROPERTY']
+    Outside:           ['CLADDING', 'LANDSCAPING', 'CHOOSE PROPERTY'],
+    OutsideFront:      ['FACADE 01', 'FACADE 02', 'FACADE 03', 'FACADE 04']
 });
 const HVS_WASHROOM_ROOM_NAMES = new Set(['GroundWashroom','UpperWashroom','MainBedWashroom']);
 function hvsPersonalizeOptionsForRoom(room) {
     const buttons=[...(EDIT_MENU_BUTTONS_BY_ROOM[room] || [])];
     // All indoor rooms except washrooms can change the common wall colour.
     // Outside keeps only cladding, landscaping and property selection.
-    if(room && room!=='Outside' && !HVS_WASHROOM_ROOM_NAMES.has(room)) {
+    if(room && room!=='Outside' && room!=='OutsideFront' && !HVS_WASHROOM_ROOM_NAMES.has(room)) {
         buttons.push('WALL COLOR');
         if(hvsFeatureWallZoneForRoom(room))buttons.push('FEATURE WALL COLOR');
         buttons.push('CHOOSE PROPERTY');
@@ -6056,6 +6091,7 @@ function renderEditMenu() {
     }
     const options = hvsPersonalizeOptionsForRoom(displayRoom);
     editOptionButtons.replaceChildren();
+    editOptionButtons.classList.toggle('hvsFacadeGrid',displayRoom==='OutsideFront');
     editMenuEmptyMessage.classList.toggle('is-visible', options.length === 0);
     if (options.length === 0) {
         editMenuEmptyMessage.textContent = personalizeCheckPending
@@ -6071,6 +6107,23 @@ function renderEditMenu() {
         button.className = 'editOptionButton';
         button.textContent = option;
         button.dataset.editOption = option;
+        const facadeChoice=option.startsWith('FACADE ')
+            ? HVS_FACADE_CHOICES.find(entry=>entry.id===option.slice(-2)) : null;
+        if(facadeChoice){
+            button.textContent='';
+            button.classList.add('hvsFacadeOption');
+            button.dataset.facade=facadeChoice.id;
+            const thumb=document.createElement('img');
+            thumb.src=facadeChoice.file;
+            thumb.alt=facadeChoice.label;
+            thumb.loading='lazy';
+            thumb.onerror=()=>{thumb.onerror=null;thumb.src='https://nicodutoitcanada-debug.github.io/Home-View-Demo-Test/'+facadeChoice.file};
+            const name=document.createElement('span');name.className='hvsFacadeName';name.textContent=facadeChoice.label;
+            const price=document.createElement('span');price.className='hvsFacadeCost';
+            const value=window.homeViewFacadePrice?.(facadeChoice.id)??facadeChoice.estimate;
+            price.textContent=value===0?'INCLUDED':'+ $'+Number(value).toLocaleString('en-CA');
+            button.append(thumb,name,price);
+        }
         // During the brief verification window the buttons are shown only to
         // establish the correct panel geometry; they become interactive as soon
         // as the fresh room is confirmed.
@@ -6084,9 +6137,15 @@ function renderEditMenu() {
             button.setAttribute('aria-label',`Landscaping ${enabled?'on':'off'}. Click to toggle.`);
             button.setAttribute('aria-pressed',String(enabled));
         }
-        button.classList.toggle('is-selected', selectedEditMenuOption === option);
-        button.setAttribute('aria-pressed', String(selectedEditMenuOption === option));
+        const active=facadeChoice ? (window.homeViewGetFacadeChoice?.()??'01')===facadeChoice.id : selectedEditMenuOption===option;
+        button.classList.toggle('is-selected',active);
+        button.setAttribute('aria-pressed',String(active));
         button.addEventListener('click', () => {
+            if(facadeChoice){
+                window.homeViewSelectFacade?.(facadeChoice.id);
+                renderEditMenu();
+                return;
+            }
             selectedEditMenuOption = option;
             for (const item of editOptionButtons.querySelectorAll('.editOptionButton')) {
                 const active = item.dataset.editOption === option;
@@ -6569,11 +6628,13 @@ const teleportFloorTitles = {
 // in { "teleportMap": "..." }; it is case-sensitive.
 const jumpTargetData = {
     ground: [
+        { id:'ground-front', x:9.5, y:87.5, label:'Front of house teleport', unrealValue:'front', icon:'front.png' },
         { id: 'ground-01', x: 36.935, y: 18.952, label: 'Living room teleport', unrealValue: 'groundLiving' },
         { id: 'ground-02', x: 48.591, y: 32.621, label: 'Kitchen teleport', unrealValue: 'kitchen' },
         { id: 'ground-03', x: 67.802, y: 54.849, label: 'Office teleport', unrealValue: 'office' }
     ],
     first: [
+        { id:'first-front', x:9.5, y:87.5, label:'Front of house teleport', unrealValue:'front', icon:'front.png' },
         { id: 'first-01', x: 29.138, y: 10.529, label: 'Teen bedroom teleport', unrealValue: 'teenBedroom' },
         { id: 'first-02', x: 67.279, y: 16.095, label: 'Kid bedroom teleport', unrealValue: 'kidBedroom' },
         { id: 'first-03', x: 52.825, y: 47.716, label: 'First lounge teleport', unrealValue: 'firstLounge' },
@@ -6718,11 +6779,20 @@ function hvsPointInPolygon(px,py,points) {
     }
     return inside;
 }
+// Traced from the red exterior on ground_floor.jpg (960 x 2048).
+function hvsIsAtFrontOfHouse(px,py){
+    if(!Number.isFinite(px)||!Number.isFinite(py))return false;
+    return (py>=557 && px<=172) ||
+           (py>=1320 && px<=292) ||
+           (py>=1940);
+}
 function hvsRoomFromMapPosition(x,y,floor) {
     if(!Number.isFinite(x)||!Number.isFinite(y)||!['ground','first'].includes(floor))return null;
     const point=mapWorldToImage(x,y);
     const px=point.px,py=point.py;
     const p=HVS_PERSONALIZE_MARKED_POLYGONS[floor];
+    // Keep existing rear-yard options; only front has facade styles.
+    if(floor==='ground' && hvsIsAtFrontOfHouse(px,py))return 'OutsideFront';
     // Pink outdoor band of ground-floor reference, including *higher* Y on the map.
     if(floor==='ground' && py<=104)return 'Outside';
     if(hvsPointInPolygon(px,py,p.red))
@@ -7589,7 +7659,11 @@ function buildJumpTargets() {
             button.style.setProperty('--jump-delay', `${index * 118}ms`);
 
             const icon = document.createElement('img');
-            icon.src = '01 TELEPORT.png';
+            icon.src = target.icon || '01 TELEPORT.png';
+            icon.onerror = target.icon ? () => {
+                icon.onerror=null;
+                icon.src='https://nicodutoitcanada-debug.github.io/Home-View-Demo-Test/'+target.icon;
+            } : null;
             icon.alt = '';
 
             button.appendChild(icon);
@@ -7881,7 +7955,7 @@ const HVS_DEFAULT_COSTS = Object.freeze([
     ['Base Cost',380000],['Landscaping Cost',15400],
     ['Kitchen Backsplash Cost',1550],['Kitchen Counter Cost',3650],
     ['Kitchen Island Counter Cost',4150],['Kitchen Cupboards Cost',2550],
-    ['Kitchen Cupboards Glass Cost',0],
+    ['Kitchen Cupboards Glass Cost',0],['Facade Design Cost',0],
     ['Washroom Backsplash Ground Floor Cost',0],
     ['Washroom Counter Ground Floor Cost',0],
     ['Washroom Backsplash First Floor Cost',0],
@@ -7915,6 +7989,7 @@ const HVS_DEFAULT_FINISH_SETTINGS=Object.freeze({
     Railing:'wood_04', // Demo assumed starting railing finish; changeable in UI.
     Cladding:'wood_04', // Demo-only included finish; changeable via admin pricing.
     landscaping:'on', // Includes the default Landscaping Cost in the estimate.
+    FacadeChoice:'01', // Included default facade; no event sent at startup.
     wall_color:'01',wall_feat_living:'01',wall_feat_office:'01',wall_feat_main_bed:'01'
 });
 const HVS_FINISH_ZONE_COST_ID=Object.freeze({
@@ -7981,6 +8056,7 @@ const HVS_DEFAULT_FINISH_PRICE_CATALOG=(()=>{
     add('railing',{wood_01:0,wood_02:160,wood_03:280,wood_04:0,wood_05:440,wood_06:720,wood_07:1050});
     // CLADDING — illustrative CAD upgrades over the included wood_04 finish.
     add('cladding',{wood_01:0,wood_02:650,wood_03:1100,wood_04:0,wood_05:1600,wood_06:2400,wood_07:3100});
+    add('facade',{'01':0,'02':4500,'03':8500,'04':12000});
     // 01 is included in every new wall category. No invented wall-upgrade prices.
     for(const zone of ['wallColor','wallFeatLiving','wallFeatOffice','wallFeatMainBed']){
         const count=zone==='wallColor'?6:12;
@@ -8176,6 +8252,33 @@ window.homeViewSaveLandscaping=function(value){
     console.info('[LANDSCAPING] State:',value,'Cost:',hvsMoney(profile.costOverrides['Landscaping Cost']));
     return true;
 };
+let hvsFacadeLoadingTimer=null;
+window.homeViewGetFacadeChoice=()=>hvsCurrentProfile().settings.FacadeChoice||'01';
+window.homeViewFacadePrice=id=>hvsFinishPrice('facade',id);
+window.homeViewShowFacadeLoading=()=>{
+    const overlay=document.getElementById('hvsFacadeLoadingOverlay');
+    if(!overlay)return;
+    clearTimeout(hvsFacadeLoadingTimer);
+    overlay.classList.add('is-open');
+    overlay.setAttribute('aria-hidden','false');
+    hvsFacadeLoadingTimer=setTimeout(()=>{
+        overlay.classList.remove('is-open');
+        overlay.setAttribute('aria-hidden','true');
+    },2000);
+};
+window.homeViewSelectFacade=id=>{
+    if(!HVS_FACADE_CHOICES.some(choice=>choice.id===id))return false;
+    hvsSetConfig('FacadeChoice',id);
+    const profile=hvsCurrentProfile();
+    profile.costOverrides['Facade Design Cost']=hvsFinishPrice('facade',id);
+    hvsPersistProfile();
+    hvsLastChangedKey='Facade Design Cost';
+    hvsRenderCost();
+    window.homeViewShowFacadeLoading();
+    const sent=window.homeViewSend?.({facade:id});
+    console.info('[FACADE] Sent to Unreal',JSON.stringify({facade:id}),sent);
+    return true;
+};
 window.homeViewSaveFinishChoice=hvsSaveFinishChoice;
 window.homeViewGetFinishChoice=key=>hvsCurrentProfile().settings[key]??null;
 window.homeViewGetFinishChoices=()=>({...hvsCurrentProfile().settings});
@@ -8194,6 +8297,7 @@ function hvsPrices(){
     hvsSynchronizeLayoutCost(profile);
     hvsSynchronizeFinishCosts(profile);
     hvsSynchronizeLandscapingCost(profile);
+    profile.costOverrides['Facade Design Cost']=hvsFinishPrice('facade',profile.settings.FacadeChoice||'01');
     const prices={};
     for(const [id,price] of Object.entries(hvsStore.catalog))prices[id]=(hvsOwn(profile.costOverrides,id)?profile.costOverrides[id]:price);
     for(const [id,price] of Object.entries(profile.costOverrides))if(!hvsOwn(prices,id))prices[id]=price;
@@ -8690,7 +8794,7 @@ function hvsFillPriceEditor(){
     for(const [key,amount] of Object.entries(hvsStore.finishCatalog)){
         const row=document.createElement('div');row.className='hvsPriceRow';
         const label=document.createElement('label');
-        const [zone,finish]=key.split('|');label.textContent=`${HVS_KITCHEN_FINISH_TITLES[zone]||'KITCHEN HARDWARE'} — ${finish}`;
+        const [zone,finish]=key.split('|');label.textContent=`${zone==='facade'?'FACADE DESIGN':(HVS_KITCHEN_FINISH_TITLES[zone]||'KITCHEN HARDWARE')} — ${finish}`;
         const input=document.createElement('input');input.className='hvsTextInput';input.type='number';
         input.min='0';input.step='0.01';input.value=String(amount);input.dataset.finishPriceKey=key;
         input.setAttribute('aria-label',label.textContent+' price');row.append(label,input);group.append(row);
@@ -9419,6 +9523,13 @@ window.addEventListener('resize',hvsUpdateHowToScale);
 </script>
 
 
+<div id="hvsFacadeLoadingOverlay" aria-hidden="true">
+  <div id="hvsFacadeLoadingCard" role="status" aria-live="polite" aria-atomic="true">
+    <span class="hvsLotSpinner" aria-hidden="true"></span>
+    <h2>LOADING FACADE</h2>
+    <p>Updating the front of your home…</p>
+  </div>
+</div>
 <div id="hvsLotLoadingOverlay" aria-hidden="true">
   <div id="hvsLotLoadingCard" role="status" aria-live="polite" aria-atomic="true">
     <span class="hvsLotSpinner" aria-hidden="true"></span>
