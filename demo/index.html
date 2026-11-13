@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8" />
 <!-- HVS launch freshness: refresh once before starting a new stream. -->
-<meta name="hvs-release" content="2026-11-13-facade-front-stable-2">
+<meta name="hvs-release" content="2026-11-13-facade-front-lot18-3">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function(){
@@ -16,7 +16,7 @@
     url.searchParams.delete('_hvs_launch');
     history.replaceState(history.state,'',url.href);
   }
-  window.homeViewRelease='2026-11-13-facade-front-stable-2';
+  window.homeViewRelease='2026-11-13-facade-front-lot18-3';
 })();
 </script>
 
@@ -5764,12 +5764,12 @@ body:is(.hvs-session-ending,.hvs-session-ended) #hvsSessionScreen{z-index:214748
     </header>
     <div id="hvsPropertyOptions" role="group" aria-label="Development lot selection">
       <div id="hvsPropertyMapFrame">
-        <img id="hvsPropertyMapImage" src="Property Map/development_lot12_selected.webp" onerror="this.onerror=null;this.src='Property Map/development_lot12_selected.png'" alt="Aerial illustration of a residential community showing lots 12 and 18 available for selection and the other lots unavailable." draggable="false">
-        <button type="button" id="hvsPropertyOne" class="hvsMapHotspot hvsMapHotspot12" data-property="one" aria-label="Lot 12, currently selected" title="Lot 12"><span class="hvsVisuallyHidden">Lot 12 / Property 01</span></button>
-        <button type="button" id="hvsPropertyTwo" class="hvsMapHotspot hvsMapHotspot18" data-property="two" aria-label="Select Lot 18" title="Lot 18"><span class="hvsVisuallyHidden">Lot 18 / Property 02</span></button>
+        <img id="hvsPropertyMapImage" src="Property Map/development_lot18_selected.webp" onerror="this.onerror=null;this.src='Property Map/development_lot18_selected.png'" alt="Aerial illustration of a residential community showing lots 12 and 18 available for selection and the other lots unavailable." draggable="false">
+        <button type="button" id="hvsPropertyOne" class="hvsMapHotspot hvsMapHotspot12" data-property="one" aria-label="Select Lot 12" title="Lot 12"><span class="hvsVisuallyHidden">Lot 12 / Property 01</span></button>
+        <button type="button" id="hvsPropertyTwo" class="hvsMapHotspot hvsMapHotspot18" data-property="two" aria-label="Lot 18, currently selected" title="Lot 18"><span class="hvsVisuallyHidden">Lot 18 / Property 02</span></button>
       </div>
     </div>
-    <footer class="hvsMapFooter"><div class="hvsMapSelectedText">CURRENT PROPERTY <strong id="hvsPropertyCurrentLot">LOT 12</strong></div><span>Tap the other available lot to change properties.</span></footer>
+    <footer class="hvsMapFooter"><div class="hvsMapSelectedText">CURRENT PROPERTY <strong id="hvsPropertyCurrentLot">LOT 18</strong></div><span>Tap the other available lot to change properties.</span></footer>
   </section>
 </div>
 
@@ -8126,9 +8126,10 @@ function hvsEnsureFinishDefaults(profile){
     if(!hvsOwn(settings,'Carpet_finish')&&/^carpet_0[1-5]$/.test(settings.CarpetFinishSelection||''))
         settings.Carpet_finish=settings.CarpetFinishSelection.slice(-2);
     for(const [key,value] of Object.entries(HVS_DEFAULT_FINISH_SETTINGS))if(!hvsOwn(settings,key))settings[key]=value;
-    // The packaged Unreal build starts on Property One. This is UI/calculator
-    // state only: do not send any property-change message during startup.
-    if(!['one','two'].includes(settings.PropertyChoice))settings.PropertyChoice='one';
+    // The current Unreal build starts on Property Two (Lot 18).
+    // Default frontend selection only; no property message is sent on startup.
+    // Respect existing users' explicitly saved property choices.
+    if(!['one','two'].includes(settings.PropertyChoice))settings.PropertyChoice='two';
     return profile;
 }
 const hvsAccountProfileKey=account=>account?.cloudId?'buyer:'+account.cloudId:hvsNormalizeName(account?.name);
@@ -8141,7 +8142,7 @@ function hvsGuestHasCustomDesign(){
     const p=hvsGuestProfile||{};
     for(const [key,value] of Object.entries(p.settings||{})){
         if(/Seen|Offer/i.test(key))continue;
-        if(key==='PropertyChoice'&&value==='one')continue;
+        if(key==='PropertyChoice'&&value==='two')continue;
         if(key==='FirstFloorLayout'&&value==='lounge')continue;
         if(Object.prototype.hasOwnProperty.call(HVS_DEFAULT_FINISH_SETTINGS,key)){
             if(String(value)!==String(HVS_DEFAULT_FINISH_SETTINGS[key]))return true;
@@ -8384,13 +8385,13 @@ function hvsSetConfig(key,value){
 // repeated trigger messages for the lifetime of this browser page.
 window.homeViewLayoutOfferWasSeen=()=>hvsCurrentProfile().settings.UpstairsLayoutOfferSeen===true;
 window.homeViewMarkLayoutOfferSeen=()=>hvsSetConfig('UpstairsLayoutOfferSeen',true);
-// PROPERTY_SELECTOR: Property One matches the starting Unreal build.
+// PROPERTY_SELECTOR: Property Two (Lot 18) matches the current Unreal build.
 // The frontend never sends this default to Unreal on startup.
 window.homeViewPropertyOfferWasSeen=()=>hvsCurrentProfile().settings.PropertyOfferSeen===true;
 window.homeViewMarkPropertyOfferSeen=()=>hvsSetConfig('PropertyOfferSeen',true);
 // Track the property that has ACTUALLY been selected in this live stream.
 // A stored profile choice is not active until the user explicitly restores it.
-let hvsLivePropertyChoice='one';
+let hvsLivePropertyChoice='two';
 window.homeViewGetPropertyChoice=()=>hvsLivePropertyChoice;
 window.homeViewSavePropertyChoice=(choice)=>{
     if(!['one','two'].includes(choice))return false;
