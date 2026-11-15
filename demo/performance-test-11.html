@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8" />
 <!-- HVS launch freshness: refresh once before starting a new stream. -->
-<meta name="hvs-release" content="2026-11-13-perf-test-11-early-bitrate">
+<meta name="hvs-release" content="2026-11-13-facade-front-lot18-3">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function(){
@@ -16,7 +16,7 @@
     url.searchParams.delete('_hvs_launch');
     history.replaceState(history.state,'',url.href);
   }
-  window.homeViewRelease='2026-11-13-perf-test-11-early-bitrate';
+  window.homeViewRelease='2026-11-13-facade-front-lot18-3';
 })();
 </script>
 
@@ -9600,14 +9600,6 @@ window.addEventListener('resize',hvsUpdateHowToScale);
 // ================================================================
 // Pre-Lux streaming baseline, October 30; current buyer features retained.
 const HVS_REQUESTED_MAX_FPS = 30; // Maximum on every platform, including fallbacks.
-// TEST 11: Isolated initial-bitrate experiment; not used by either public index.
-const HVS_PERF11_EARLY_RATE = true;
-const HVS_PERF11_EVENTS = [];
-function hvsPerf11Event(name,detail=null){
-  if(new URLSearchParams(location.search).get('diagnostics')!=='1')return;
-  HVS_PERF11_EVENTS.push({time:Date.now(),name,detail});
-  if(HVS_PERF11_EVENTS.length>100)HVS_PERF11_EVENTS.shift();
-}
 const dev_mode = false; // true=local Epic Pixel Streaming, false=Arcware
 const dev_mobile_mode = false; // true=connect local stream by this page's LAN IP (phone testing); false=127.0.0.1 (PC testing)
 // Mobile mode only changes the local signalling URL. Live Arcware mode is unchanged.
@@ -10355,26 +10347,14 @@ function receiveUnrealResponse(response) {
     if (data.screenshot === 'generating' && screenshotRequestInFlight)
       showScreenshotOverlay('Generating high resolution image', true, false);
     if (data.Game === 'Loaded' && !loadRequested && !levelReady) {
-      hvsPerf11Event('Unreal Game: Loaded');
       mobileDevStatus('Game Loaded received; requesting homeViewDemo');
       // Do NOT send until Unreal explicitly declares Game:Loaded.
       unrealIsReadyForResolution = true;
-      // Send the SAME 4 Mbps maximum already configured in the SDK, but at
-      // the first confirmed open Unreal data channel rather than after reveal.
-      // The default 1440px resize still waits for HomeViewLevelLoaded.
-      if(HVS_PERF11_EARLY_RATE && HVS_QUALITY_MOBILE && !dev_mode){
-        const limitKbps=HVS_QUALITY_LEVELS[hvsQualityIndex];
-        const sent=hvsSendMobileCommand({'WebRTC.MaxBitrate':limitKbps*1000});
-        hvsPerf11Event('Early 4 Mbps cap request',{sent,limitKbps,
-          streamSize:(()=>{const v=document.querySelector('#video-container video');return v?.videoWidth?(`${v.videoWidth}x${v.videoHeight}`):'unknown'})()});
-      }
       loadRequested = sendUnreal({ load:'homeViewDemo' });
-      hvsPerf11Event('Frontend load:homeViewDemo',{sent:loadRequested});
       // Unreal is changing levels. Wait until HomeViewLevelLoaded before
       // requesting the initial rendering resolution to avoid an early resize.
     }
     if (data.Game === 'HomeViewLevelLoaded') {
-      hvsPerf11Event('Unreal Game: HomeViewLevelLoaded');
       mobileDevStatus('HomeViewLevelLoaded received; opening UI');
       if (MOBILE_DIAGNOSTICS) setTimeout(() => document.getElementById('homeview-mobile-diagnostics')?.remove(), 4000);
       unrealIsReadyForResolution = true;
@@ -10615,7 +10595,6 @@ window.homeViewStartupVideoStatus=()=>({
 
 function hvsCompleteGameReveal() {
   if (hvsGameRevealStarted || window.homeViewSessionIntentional || homeViewTeardownStarted)return;
-  hvsPerf11Event('Frontend revealed game');
   hvsGameRevealStarted = true;
   hvsStartupMonitorToken++;
   hvsStartupSetNotice('hide');
@@ -11447,7 +11426,7 @@ if(new URLSearchParams(location.search).get('diagnostics')==='1'){
       this.samples.push(row);if(this.samples.length>600)this.samples.shift();return row;
     }
     summary(reason){return{
-      version:'HVS mobile diagnostics 11 — early bitrate ceiling comparison',mobileRequest:window.homeViewMobileTuningStatus?.()||null,reason,finishedAt:new Date().toISOString(),
+      version:'HVS mobile diagnostics 11 — restored working startup',mobileRequest:window.homeViewMobileTuningStatus?.()||null,reason,finishedAt:new Date().toISOString(),
       wallSeconds:Math.round((Date.now()-this.started)/1000),measuredSeconds:+this.seconds.toFixed(1),
       averageIncomingFps:this.arrivedSeconds?+(this.arrivedFrames/this.arrivedSeconds).toFixed(1):null,
       averageKbps:this.byteSeconds?Math.round(this.videoBytes*8/this.byteSeconds/1000):null,
@@ -11548,7 +11527,7 @@ if(new URLSearchParams(location.search).get('diagnostics')==='1'){
     };panel.appendChild(download);
     document.getElementById('hvsSessionScreen').classList.add('hvs-diagnostics-results');panel.hidden=false;
   }
-  function diagnosticSummary(reason){return {...metrics.summary(reason),serverTiming:hvsServerTimingProbe.snapshot(),qpComparison:hvsQPComparisonSnapshot(),startupSeconds:revealedAt===null?null:+((revealedAt-metrics.started)/1000).toFixed(1),startup:startupSummary||metrics.summary('Still loading'),playback:revealedAt===null?null:playbackMetrics.summary(reason),performanceTest:{variant:'Test 11 — early 4 Mbps bitrate ceiling',baseline:'2026-11-13 production index',originalProductionBlobSha:'df5bd56d5aef52fa2b29559ca5dc16b39929312d',earlyBitrateEnabled:HVS_PERF11_EARLY_RATE,events:HVS_PERF11_EVENTS.map(({time,name,detail})=>({atSeconds:+((time-metrics.started)/1000).toFixed(2),name,detail}))}};}
+  function diagnosticSummary(reason){return {...metrics.summary(reason),serverTiming:hvsServerTimingProbe.snapshot(),qpComparison:hvsQPComparisonSnapshot(),startupSeconds:revealedAt===null?null:+((revealedAt-metrics.started)/1000).toFixed(1),startup:startupSummary||metrics.summary('Still loading'),playback:revealedAt===null?null:playbackMetrics.summary(reason)};}
   button.addEventListener('click',show);
   window.homeViewDiagnostics={
     start(){if(running||finished)return;running=true;metrics.started=Date.now();metrics.note('Player created; loading diagnostics started');poll();},

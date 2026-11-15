@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8" />
 <!-- HVS launch freshness: refresh once before starting a new stream. -->
-<meta name="hvs-release" content="2026-11-14-perf-test-12-fast-reveal">
+<meta name="hvs-release" content="2026-11-14-perf-test-12-direct-ready-watchdog">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function(){
@@ -16,7 +16,7 @@
     url.searchParams.delete('_hvs_launch');
     history.replaceState(history.state,'',url.href);
   }
-  window.homeViewRelease='2026-11-14-perf-test-12-fast-reveal';
+  window.homeViewRelease='2026-11-14-perf-test-12-direct-ready';
 })();
 </script>
 
@@ -9641,7 +9641,6 @@ function mobileDevStatus(message, issue=false) {
 
 const SHARE_ID = 'share-49b3b4a2-4484-4850-b567-5ad8d7ac0df8';
 let application = null;
-let loadRequested = false;
 let levelReady = false;
 let introFinished = false;
 let loadingAnimation = null;
@@ -10355,34 +10354,12 @@ function receiveUnrealResponse(response) {
     // user actually clicked GENERATE IMAGE, preventing a permanent overlay.
     if (data.screenshot === 'generating' && screenshotRequestInFlight)
       showScreenshotOverlay('Generating high resolution image', true, false);
-    if (data.Game === 'Loaded' && !loadRequested && !levelReady) {
-      hvsTest12Event('Game:Loaded handshake');
-      mobileDevStatus('Game Loaded received; requesting homeViewDemo');
-      // Do NOT send until Unreal explicitly declares Game:Loaded.
-      unrealIsReadyForResolution = true;
-      loadRequested = sendUnreal({ load:'homeViewDemo' });
-      // Unreal is changing levels. Wait until HomeViewLevelLoaded before
-      // requesting the initial rendering resolution to avoid an early resize.
-    }
+    // Unreal 5.8 now starts directly in HomeViewDemo_02.
+    // The ONLY readiness handshake is Game:HomeViewLevelLoaded.
+    // Never send load:homeViewDemo or attempt to open a second level.
     if (data.Game === 'HomeViewLevelLoaded') {
-      hvsTest12Event('Game:HomeViewLevelLoaded received');
-      mobileDevStatus('HomeViewLevelLoaded received; opening UI');
-      if (MOBILE_DIAGNOSTICS) setTimeout(() => document.getElementById('homeview-mobile-diagnostics')?.remove(), 4000);
-      unrealIsReadyForResolution = true;
-      revealHomeView();
-      window.homeViewOnLevelReady?.();
-      // One initial resolution request is sufficient. Additional correction
-      // is only considered once actual video dimensions are available.
-      if(!HVS_QUALITY_MOBILE)setTimeout(() => sendViewportResolutionToUnreal('Home View level ready', true), 380);
-      hvsRefreshInitialPlayerFit();
-      // On initial mobile connection the Unreal video may still be 16:9 even
-      // though the phone's stage is much wider. Rotation fixed this before;
-      // perform the same aspect verification at startup with BOUNDED retries.
-      [2700, 4600].forEach(ms=>setTimeout(()=>{
-        const startupVideo=document.querySelector('#video-container video');
-        if(startupVideo?.videoWidth && startupVideo?.videoHeight && hvsStreamAspectMismatched())
-          sendViewportResolutionToUnreal('initial phone aspect correction',true);
-      },ms));
+      hvsTest12Event('Game:HomeViewLevelLoaded received',{duplicate:levelReady});
+      hvsConfirmDirectLevelReady('Unreal data-channel message');
     }
   }
   if (typeof response === 'string' && response.startsWith('CreateScreenshot')) {
@@ -10710,6 +10687,54 @@ function revealHomeView() {
   hvsWaitForStartupFit();
 }
 
+// DIRECT-LEVEL RECOVERY (Test 12): the only Unreal startup message can be
+// emitted before Arcware's frontend data-channel callback has attached. If so,
+// trust sustained real decoded, non-black video rather than waiting forever.
+// This creates NO new connection and sends NO level-load UIInteraction.
+function hvsConfirmDirectLevelReady(source) {
+  if(levelReady || window.homeViewSessionIntentional || homeViewTeardownStarted)return false;
+  hvsTest12Event('Direct-level startup acknowledged',{source});
+  mobileDevStatus('Home View ready ('+source+'); checking video playback');
+  if(MOBILE_DIAGNOSTICS)setTimeout(()=>document.getElementById('homeview-mobile-diagnostics')?.remove(),4000);
+  unrealIsReadyForResolution=true;
+  revealHomeView();
+  window.homeViewOnLevelReady?.();
+  if(!HVS_QUALITY_MOBILE)setTimeout(()=>sendViewportResolutionToUnreal('Home View level ready',true),380);
+  hvsRefreshInitialPlayerFit();
+  [2700,4600].forEach(ms=>setTimeout(()=>{
+    if(window.homeViewSessionIntentional || homeViewTeardownStarted)return;
+    const video=document.querySelector('#video-container video');
+    if(video?.videoWidth && video?.videoHeight && hvsStreamAspectMismatched())
+      sendViewportResolutionToUnreal('initial phone aspect correction',true);
+  },ms));
+  return true;
+}
+function hvsWatchDirectLevelVideoFallback(){
+  const started=Date.now();
+  let stableSince=0;
+  const timer=setInterval(()=>{
+    if(levelReady || window.homeViewSessionIntentional || homeViewTeardownStarted){
+      clearInterval(timer);return;
+    }
+    if(document.hidden)return;
+    const state=hvsStartupInspectVideo();
+    const eligible=state.good && state.trackLive && !state.paused &&
+      state.videoWidth>0 && state.videoHeight>0 && state.picture!=='black';
+    if(eligible){
+      if(!stableSince)stableSince=Date.now();
+      if(Date.now()-stableSince>=2500 && Date.now()-started>=5000){
+        hvsTest12Event('One-time Unreal readiness signal missed; recovered using video',{videoSize:state.videoWidth+'x'+state.videoHeight});
+        hvsConfirmDirectLevelReady('verified incoming video');
+        clearInterval(timer);return;
+      }
+    }else stableSince=0;
+    if(Date.now()-started>25000){
+      hvsStartupSetNotice('stuck','No HomeViewLevelLoaded message has arrived. If video is also absent, the Arcware stream may not be producing frames. You can end the session to avoid further streaming charges.');
+    }else if(Date.now()-started>12000){
+      hvsStartupSetNotice('slow','Waiting for the Home View stream to show its first picture…');
+    }
+  },350);
+}
 // STANDALONE WEB APP: Unlike a Safari tab, an installed iOS home-screen app
 // can suspend its WebRTC page when an object-URL download launches the system
 // image viewer. Show the received Blob as an <img> IN THIS SAME PAGE instead.
@@ -11241,9 +11266,11 @@ async function initialiseEpicLocalPlayer() {
   root.style.padding = '0';
   configureStreamingInputTarget(root);
   window.homeViewDiagnostics?.start();
-  console.info('[DEV MODE] Local Epic player mounted; waiting for Unreal Game:Loaded.');
-  mobileDevStatus('Player mounted; waiting for Unreal Game Loaded');
-  if (MOBILE_DIAGNOSTICS) setTimeout(() => { if (!levelReady && !loadRequested) mobileDevStatus('Still waiting for Game Loaded. Check signaling / only one player open.',true); else if (!levelReady) mobileDevStatus('Load requested; waiting for HomeViewLevelLoaded',true); }, 12000);
+  console.info('[DEV MODE] Local Epic player mounted; waiting for Unreal Game:HomeViewLevelLoaded.');
+  mobileDevStatus('Player mounted; waiting for HomeViewLevelLoaded');
+  if (MOBILE_DIAGNOSTICS) setTimeout(() => {
+    if (!levelReady) mobileDevStatus('Still waiting for HomeViewLevelLoaded. Check signaling / only one player open.',true);
+  }, 12000);
 }
 
 // Built-in Epic latency requests only. No console commands or quality changes.
@@ -11542,7 +11569,7 @@ if(new URLSearchParams(location.search).get('diagnostics')==='1'){
     };panel.appendChild(download);
     document.getElementById('hvsSessionScreen').classList.add('hvs-diagnostics-results');panel.hidden=false;
   }
-  function diagnosticSummary(reason){return {...metrics.summary(reason),serverTiming:hvsServerTimingProbe.snapshot(),qpComparison:hvsQPComparisonSnapshot(),startupSeconds:revealedAt===null?null:+((revealedAt-metrics.started)/1000).toFixed(1),startup:startupSummary||metrics.summary('Still loading'),playback:revealedAt===null?null:playbackMetrics.summary(reason),performanceTest:{variant:'Test 12: shorter verified mobile reveal gate',baselineSha:'df5bd56d5aef52fa2b29559ca5dc16b39929312d',requiredSeconds:HVS_TEST12_HEALTHY_MS/1000,requiredFps:HVS_TEST12_FPS_MIN,events:HVS_TEST12_EVENTS.map(e=>({...e,atSeconds:+((e.at-metrics.started)/1000).toFixed(2)}))}};}
+  function diagnosticSummary(reason){return {...metrics.summary(reason),serverTiming:hvsServerTimingProbe.snapshot(),qpComparison:hvsQPComparisonSnapshot(),startupSeconds:revealedAt===null?null:+((revealedAt-metrics.started)/1000).toFixed(1),startup:startupSummary||metrics.summary('Still loading'),playback:revealedAt===null?null:playbackMetrics.summary(reason),performanceTest:{variant:'Test 12: direct HomeViewLevelLoaded + shorter verified mobile reveal gate',baselineSha:'df5bd56d5aef52fa2b29559ca5dc16b39929312d',requiredSeconds:HVS_TEST12_HEALTHY_MS/1000,requiredFps:HVS_TEST12_FPS_MIN,events:HVS_TEST12_EVENTS.map(e=>({...e,atSeconds:+((e.at-metrics.started)/1000).toFixed(2)}))}};}
   button.addEventListener('click',show);
   window.homeViewDiagnostics={
     start(){if(running||finished)return;running=true;metrics.started=Date.now();metrics.note('Player created; loading diagnostics started');poll();},
@@ -11604,6 +11631,7 @@ if (dev_mode) {
     homeViewRegisterArcwareConnectionErrors();
     document.getElementById('video-container').appendChild(application.rootElement);
     configureStreamingInputTarget(application.rootElement);
+    hvsWatchDirectLevelVideoFallback();
     window.homeViewDiagnostics?.start();
   } catch (error) { console.error('Arcware initialization failed:', error); }
 }

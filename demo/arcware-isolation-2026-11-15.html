@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>HVS — isolated stream check</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;height:100%;background:#101317;color:white;font:14px/1.45 system-ui,Arial,sans-serif}
+#stage{position:fixed;inset:0;background:#111}
+#stage video{max-width:100%;max-height:100%;object-fit:contain}
+#panel{position:fixed;top:max(10px,env(safe-area-inset-top));left:10px;right:10px;z-index:1000;max-width:560px;background:rgba(8,11,16,.94);padding:13px;border-radius:12px;box-shadow:0 4px 20px #0008}
+h1{font-size:16px;margin:0 0 7px}
+p{margin:4px 0 8px}
+small{color:#cbd0d5}
+button{padding:9px 11px;font-weight:650;border:1px solid #667;border-radius:6px;background:#303940;color:white;cursor:pointer;margin:3px 3px 3px 0}
+button:disabled{opacity:.4}
+#start{background:#38645e}#end{background:#704040}
+#status{font:12px/1.5 ui-monospace,Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere;max-height:38vh;overflow:auto;background:#0005;padding:8px;border-radius:6px}
+</style></head><body>
+<div id="stage"></div>
+<div id="panel">
+<h1>Home View: direct Arcware video check</h1>
+<p><small>No Home View loader, no frame gate, no customization, and no automatic load command. No connection is made until you press Start. Starting a session may cost Arcware credits.</small></p>
+<button id="start">Start ONE session</button>
+<button id="play" disabled>Try video playback</button>
+<button id="load" disabled>LOAD HOME (manual)</button>
+<button id="end" disabled>End session</button>
+<button id="copy">Copy status</button>
+<div id="status">Not started. No cloud session requested.</div>
+</div>
+<script>
+'use strict';
+const SHARE_ID='share-49b3b4a2-4484-4850-b567-5ad8d7ac0df8';
+const $=id=>document.getElementById(id);
+let started=false,stopped=false,application=null,sdk=null,watched=null,callbacks=0;
+let lastMessage='none',messages=0,lastError='none',report='Not started.';
+const stamp=()=>new Date().toLocaleTimeString();
+const video=()=>document.querySelector('#stage video');
+function peer(){
+ const s=sdk?.PixelStreaming,a=application;
+ const candidates=[s?.webRtcController?.peerConnectionController?.peerConnection,
+ s?.webRtcController?.webRtcPlayerObj?.pc,s?.webRtcController?.pc,
+ a?.webRtcController?.peerConnectionController?.peerConnection,
+ a?.webRtcController?.webRtcPlayerObj?.pc,a?.webRtcController?.pc,
+ a?.stream?.webRtcController?.peerConnectionController?.peerConnection,
+ a?.stream?.webRtcController?.webRtcPlayerObj?.pc];
+ return candidates.find(p=>p&&(p.getStats||p.connectionState))||null;
+}
+function watch(){
+ const v=video();if(!v||v===watched)return;watched=v;callbacks=0;
+ if(typeof v.requestVideoFrameCallback!=='function')return;
+ const frame=()=>{callbacks++;if(!stopped&&v.isConnected){try{v.requestVideoFrameCallback(frame)}catch(_){}}};
+ try{v.requestVideoFrameCallback(frame)}catch(_){}
+}
+function status(inbound='not exposed'){
+ watch();
+ const v=video(),tracks=v?.srcObject?.getVideoTracks?.()||[],pc=peer();
+ let frames='not available';
+ try{
+ const q=v?.getVideoPlaybackQuality?.();
+ if(q)frames=q.totalVideoFrames+' total, '+q.droppedVideoFrames+' dropped';
+ else if(Number.isFinite(v?.webkitDecodedFrameCount))frames=String(v.webkitDecodedFrameCount);
+ }catch(_){}
+ report=[
+ 'Local time: '+stamp(),
+ 'Session: '+(!started?'NOT STARTED':stopped?'ENDED':'REQUESTED'),
+ 'Arcware SDK: '+(sdk?'loaded':'not loaded'),
+ 'Video element: '+Boolean(v),
+ 'Video: '+(v?('readyState='+v.readyState+', paused='+v.paused+', size='+v.videoWidth+'x'+v.videoHeight+', time='+v.currentTime.toFixed(2)):'none'),
+ 'Track: '+(tracks.length?tracks.map(t=>t.readyState+' muted='+t.muted).join('; '):'none'),
+ 'Peer: '+(pc?('connection='+pc.connectionState+', ICE='+pc.iceConnectionState):'not exposed'),
+ 'Browser playback frames: '+frames,
+ 'Browser video callbacks: '+callbacks,
+ 'WebRTC inbound video: '+inbound,
+ 'Unreal messages: '+messages,
+ 'Last message: '+lastMessage,
+ 'Last error: '+lastError
+ ].join('\n');
+ $('status').textContent=report;
+}
+function error(err){lastError=err?.message||String(err);console.error(err);status()}
+async function poll(){
+ if(!started||stopped){status();return;}
+ let inbound='not exposed',p=peer();
+ if(typeof p?.getStats==='function'){
+ try{
+ const data=await p.getStats();let found=null;
+ data.forEach(x=>{if(x.type==='inbound-rtp'&&!x.isRemote&&(x.kind==='video'||x.mediaType==='video'))found=x});
+ inbound=found?('decoded='+found.framesDecoded+', received='+found.framesReceived+', bytes='+found.bytesReceived):'no inbound video RTP';
+ }catch(e){inbound='getStats failed: '+(e?.message||e)}
+ }
+ status(inbound);
+}
+function send(payload){
+ if(!application||stopped)return false;
+ const msg=JSON.stringify(payload);
+ for(const target of [application,application.webRtcController,application.stream,application.webRtcController?.stream]){
+ if(typeof target?.emitUIInteraction!=='function')continue;
+ try{target.emitUIInteraction(msg);lastMessage='Sent (not acknowledged): '+msg;status();return true}
+ catch(e){error(e)}
+ }
+ lastError='No SDK UIInteraction sender exposed';status();return false;
+}
+$('start').onclick=async()=>{
+ if(started)return;started=true;$('start').disabled=true;$('end').disabled=false;status();
+ try{
+ const {ArcwareInit}=await import('https://unpkg.com/@arcware-cloud/pixelstreaming-websdk@1.3.32/index.mjs');
+ if(stopped)return;
+ sdk=new ArcwareInit({shareId:SHARE_ID},{initialSettings:{
+ AutoConnect:true,AutoPlayVideo:true,StartVideoMuted:true,WebRTCFPS:30
+ },settings:{infoButton:false,micButton:false,audioButton:false,fullscreenButton:false,settingsButton:false,connectionStrengthIcon:false}});
+ application=sdk.Application;
+ $('stage').appendChild(application.rootElement);
+ application.getApplicationResponse(data=>{
+ messages++;lastMessage=typeof data==='string'?data:JSON.stringify(data);
+ if(lastMessage.length>280)lastMessage=lastMessage.slice(0,280)+'...';status();
+ });
+ $('play').disabled=false;$('load').disabled=false;status();
+ }catch(e){error(e)}
+};
+$('play').onclick=()=>{const v=video();if(!v){lastError='No video element';status();return}try{v.play()?.catch(error)}catch(e){error(e)}};
+$('load').onclick=()=>send({load:'homeViewDemo'});
+$('end').onclick=()=>{
+ if(stopped)return;try{send({end:'session'})}catch(_){}
+ stopped=true;
+ for(const target of [sdk?.PixelStreaming,application?.stream,application]){
+ for(const method of ['disconnect','stop','close','destroy']){
+ try{if(typeof target?.[method]==='function'){target[method]();break}}catch(_){}
+ }
+ }
+ $('stage').replaceChildren();
+ $('play').disabled=true;$('load').disabled=true;$('end').disabled=true;
+ lastMessage='Ended by user';status();
+};
+$('copy').onclick=async()=>{try{await navigator.clipboard.writeText(report);$('copy').textContent='Copied'}catch(_){$('copy').textContent='Copy unavailable'}};
+setInterval(poll,1200);status();
+</script></body></html>
