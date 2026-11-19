@@ -5439,6 +5439,44 @@ body:is(.hvs-session-ending,.hvs-session-ended) #hvsSessionScreen{z-index:214748
     box-shadow: inset 0 0 0 1px rgba(247,74,18, .24), 0 3px 18px rgba(0,0,0,.12);
 }
 </style>
+<style id="hvs-front-local-test-style">
+/* Reuse the game's original facade cards; no invented orange buttons. */
+#homeViewUI #editOptionButtons .hvsFrontCard {
+  display:flex; flex-direction:column; justify-content:center; align-items:center;
+  gap:5px; box-sizing:border-box; text-align:center;
+  padding:8px; min-height:145px; border-radius:14px;
+}
+#homeViewUI #editOptionButtons .hvsFrontThumb {
+  display:flex; align-items:center;justify-content:center;
+  width:100%;height:85px;background:transparent !important;
+  border:0 !important;box-shadow:none !important;border-radius:0 !important;
+  overflow:visible;
+}
+#homeViewUI #editOptionButtons .hvsFrontThumb img {
+  display:block;width:100%;height:100%;object-fit:contain;
+  background:transparent !important;border:0 !important;
+  box-shadow:none !important; mix-blend-mode:normal;
+}
+/* Only color chips get a background, never image tiles. */
+#homeViewUI #editOptionButtons .hvsFrontThumb:not(:has(img)) {
+  height:78px;width:85%;background:var(--hvs-front-chip) !important;border-radius:5px !important;
+  border:1px solid rgba(255,255,255,.2) !important;
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.08) !important;
+}
+#homeViewUI #editOptionButtons .hvsFrontCard:not(.is-selected) {
+  background:linear-gradient(165deg,rgba(46,54,59,.63),rgba(9,16,20,.8)) !important;
+  border:1px solid rgba(255,255,255,.20) !important;
+  color:#fff !important;
+}
+#homeViewUI #editOptionButtons .hvsFrontCard.is-selected {
+  background:linear-gradient(160deg,rgba(125,66,43,.83),rgba(50,27,20,.85)) !important;
+  border:1px solid #f06333 !important;
+  outline:none !important;
+  border-radius:14px !important;
+}
+#homeViewUI #editOptionButtons .hvsFrontCard .hvsFacadeName,
+#homeViewUI #editOptionButtons .hvsFrontCard .hvsFacadeCost {font-size:11px;}
+</style>
 <!-- ROOM-SENSITIVE PERSONALIZE MENU -->
 <div id="profileMenuWrapper">
     <div id="profileOuterBox" class="glassPanel">
@@ -6040,7 +6078,7 @@ const EDIT_MENU_BUTTONS_BY_ROOM = Object.freeze({
     FloorsOnly:        ['CARPETS'],
     FloorsOnlyMainBed: ['FLOORING'],
     Outside:           ['CLADDING', 'LANDSCAPING', 'CHOOSE PROPERTY'],
-    OutsideFront:      ['FACADE 01', 'FACADE 02', 'FACADE 03', 'FACADE 04']
+    OutsideFront:      ['FACADE 01', 'FACADE 02', 'FACADE 03', 'FACADE 04', 'CHOOSE PROPERTY', 'GARAGE DESIGN', 'COLORS']
 });
 const HVS_WASHROOM_ROOM_NAMES = new Set(['GroundWashroom','UpperWashroom','MainBedWashroom']);
 function hvsPersonalizeOptionsForRoom(room) {
@@ -6052,12 +6090,119 @@ function hvsPersonalizeOptionsForRoom(room) {
         if(hvsFeatureWallZoneForRoom(room))buttons.push('FEATURE WALL COLOR');
         buttons.push('CHOOSE PROPERTY');
     }
+    if (!buttons.includes('CHOOSE PROPERTY')) buttons.push('CHOOSE PROPERTY');
     return buttons;
-}
 let currentEditMenuRoom = null;
 let selectedEditMenuOption = null;
 const editOptionButtons = document.getElementById('editOptionButtons');
 const editMenuEmptyMessage = document.getElementById('editMenuEmptyMessage');
+
+// HVS FRONT-FACADE MENU — garage, facade-specific colors, thumbnail cards.
+let hvsFrontSubmenu=null;
+const HVS_FRONT_CATEGORIES=Object.freeze({
+    '01':['STONE','CLADDING','BOUNDRY WALL','WOOD ACCENT','GARAGE COLOR'],
+    '02':['STONE','BOUNDRY WALL','WOOD ACCENT','GARAGE COLOR'],
+    '03':['STONE','CLADDING','BOUNDRY WALL','WOOD ACCENT','GARAGE COLOR'],
+    '04':['STONE','CLADDING','BOUNDRY WALL','TILE','WOOD ACCENT','GARAGE COLOR']
+});
+const HVS_FRONT_SWATCHES=['#f0ede7','#a5a39b','#565c61','#b9716c','#577361']; // 05 = green board-and-batten
+function hvsFrontKey(category,facade){
+    const suffix={'STONE':'stone','CLADDING':'cladding','BOUNDRY WALL':'boundry_wall','TILE':'tiles','WOOD ACCENT':'wood'}[category];
+    return suffix?`F_${facade}_${suffix}`:null;
+}
+function hvsFrontOptionData(category,id){
+    if(category==='GARAGE DESIGN')return {label:`GARAGE ${id}`,file:`garage_${id}.png`};
+    if(category==='STONE')return {label:`STONE ${id}`,file:`stone_${id}.png`};
+    if(category==='WOOD ACCENT')return {label:`WOOD ${id}`,file:`Kitchen/wood_${id==='01'?'00':id}.jpg`};
+    if(category==='TILE')return {label:`TILE ${id}`,file:`Kitchen/marble_${id}.jpg`};
+    return {label:`COLOR ${id}`,color:HVS_FRONT_SWATCHES[Number(id)-1]||'#777'};
+}
+let hvsFrontAnimating=false;
+async function hvsFrontNavigate(nextPanel){
+    if(hvsFrontAnimating)return;
+    const items=editOptionButtons;
+    hvsFrontAnimating=true;
+    try{
+        const out=items.animate([
+          {opacity:1,transform:'translate3d(0,0,0) scale(1)'},
+          {opacity:0,transform:'translate3d(-20px,0,0) scale(.975)'}
+        ],{duration:220,easing:'cubic-bezier(.4,0,1,1)',fill:'forwards'});
+        await out.finished.catch(()=>{});
+        out.cancel();
+        hvsFrontSubmenu=nextPanel;
+        renderEditMenu();
+        const incoming=items.animate([
+          {opacity:0,transform:'translate3d(23px,0,0) scale(.975)'},
+          {opacity:1,transform:'translate3d(0,0,0) scale(1)'}
+        ],{duration:440,easing:'cubic-bezier(.16,1,.3,1)',fill:'both'});
+        await incoming.finished.catch(()=>{});
+        incoming.cancel();
+    }finally{
+        items.style.opacity='';
+        items.style.transform='';
+        hvsFrontAnimating=false;
+    }
+}
+function hvsFrontCreateButton(label,click){
+    const b=document.createElement('button');b.type='button';b.className='editOptionButton';
+    b.textContent=label;b.addEventListener('click',click);editOptionButtons.append(b);return b;
+}
+function hvsRenderFrontSubmenu(){
+    const facade=window.homeViewGetFacadeChoice?.()||'01';
+    const panel=hvsFrontSubmenu;
+    editOptionButtons.replaceChildren();
+    editOptionButtons.classList.toggle('hvsFacadeGrid',!!panel?.category || panel?.page==='garage');
+    editMenuEmptyMessage.classList.remove('is-visible');
+    if(!panel)return false;
+    if(panel.page==='colors'&&!panel.category){
+        for(const category of HVS_FRONT_CATEGORIES[facade])
+            hvsFrontCreateButton(category,()=>{hvsFrontNavigate({page:'colors',category});});
+        return true;
+    }
+    const category=panel.page==='garage'?'GARAGE DESIGN':panel.category;
+    if(!category)return true;
+    const key=category==='GARAGE DESIGN'?'GarageDoor':category==='GARAGE COLOR'?'GarageColor':hvsFrontKey(category,facade);
+    const count=category==='GARAGE DESIGN'||category==='STONE'?4:category==='WOOD ACCENT'?7:5;
+    for(let i=1;i<=count;i++){
+        const id=String(i).padStart(2,'0');
+        const item=hvsFrontOptionData(category,id);
+        const b=document.createElement('button');
+        b.type='button';b.className='editOptionButton hvsFacadeOption hvsFrontCard';
+        b.dataset.frontKey=key;b.dataset.frontId=id;
+        const thumb=document.createElement('span');thumb.className='hvsFrontThumb';
+        if(item.file){
+            const img=document.createElement('img');img.src=item.file;img.alt=item.label;img.loading='lazy';
+            img.onerror=()=>{if(!img.dataset.retry){img.dataset.retry='1';img.src='https://nicodutoitcanada-debug.github.io/Home-View-Demo-Test/'+item.file;}else{img.style.display='none';thumb.textContent=id;}};
+            thumb.append(img);
+        }else thumb.style.setProperty('--hvs-front-chip',item.color);
+        const title=document.createElement('span');title.textContent=item.label;title.className='hvsFacadeName';
+        const price=document.createElement('span');price.className='hvsFacadeCost';
+        const cost=hvsFinishPrice(category==='GARAGE DESIGN'?'garage':category==='GARAGE COLOR'?'garageColor':key,id);
+        price.textContent=cost===0?'INCLUDED':`+ $${Number(cost).toLocaleString('en-CA')}`;
+        b.append(thumb,title,price);
+        const active=(window.homeViewGetFinishChoice?.(key)||HVS_DEFAULT_FINISH_SETTINGS[key])===id;
+        b.classList.toggle('is-selected',active);b.setAttribute('aria-pressed',String(active));
+        b.addEventListener('click',()=>{
+            hvsSetConfig(key,id);
+            hvsSynchronizeFinishCosts(hvsCurrentProfile());
+            hvsPersistProfile();hvsLastChangedKey=category==='GARAGE DESIGN'?'Garage Design Cost':category==='GARAGE COLOR'?'Garage Color Cost':`Facade ${facade} ${category} Cost`;
+            hvsRenderCost();
+            window.homeViewSend?.({[key]:id});
+            renderEditMenu();
+        });
+        editOptionButtons.appendChild(b);
+    }
+    return true;
+}
+
+// Use ONLY the existing Personalize header/back icon for all front submenus.
+profileMenuCloseButton.addEventListener('click',function(event){
+    if(!hvsFrontSubmenu || currentEditMenuRoom!=='OutsideFront')return;
+    event.preventDefault();event.stopImmediatePropagation();
+    if(hvsFrontAnimating)return;
+    hvsFrontNavigate(hvsFrontSubmenu.category?{page:'colors'}:null);
+},true);
+
 // Unreal now streams the existing position, yaw and floor packets every 0.1s.
 // Room triggers still arrive independently; they are context, not the live map.
 let personalizeCheckPending = false;
@@ -6083,6 +6228,10 @@ let liveMapFloorReceivedAt = 0;
 let liveMapYawReceivedAt = 0;
 
 function renderEditMenu() {
+    if(currentEditMenuRoom!=='OutsideFront')hvsFrontSubmenu=null;
+    if(hvsFrontSubmenu&&currentEditMenuRoom==='OutsideFront'){
+        hvsRenderFrontSubmenu();return;
+    }
     // PERSONALIZE ENTRY STABILITY:
     // Do not collapse this panel to a tiny "checking" state while fresh XY/floor
     // samples arrive. That height change was causing the centered wrapper to jump
@@ -6153,6 +6302,12 @@ function renderEditMenu() {
                 const active = item.dataset.editOption === option;
                 item.classList.toggle('is-selected', active);
                 item.setAttribute('aria-pressed', String(active));
+            }
+            if(currentEditMenuRoom==='OutsideFront' && option==='GARAGE DESIGN'){
+                hvsFrontNavigate({page:'garage'});return;
+            }
+            if(currentEditMenuRoom==='OutsideFront' && option==='COLORS'){
+                hvsFrontNavigate({page:'colors'});return;
             }
             if(option==='CHOOSE PROPERTY') {
                 window.homeViewOpenPropertySelector?.();
@@ -7992,6 +8147,11 @@ const HVS_DEFAULT_FINISH_SETTINGS=Object.freeze({
     Cladding:'wood_04', // Demo-only included finish; changeable via admin pricing.
     landscaping:'on', // Includes the default Landscaping Cost in the estimate.
     FacadeChoice:'01', // Included default facade; no event sent at startup.
+    GarageDoor:'01', GarageColor:'03',
+    F_01_stone:'01',F_01_cladding:'01',F_01_boundry_wall:'01',F_01_wood:'01',
+    F_02_stone:'01',F_02_boundry_wall:'01',F_02_wood:'01',
+    F_03_stone:'01',F_03_cladding:'05',F_03_boundry_wall:'01',F_03_wood:'01',
+    F_04_stone:'02',F_04_cladding:'03',F_04_boundry_wall:'01',F_04_tiles:'04',F_04_wood:'01',
     wall_color:'01',wall_feat_living:'01',wall_feat_office:'01',wall_feat_main_bed:'01'
 });
 const HVS_FINISH_ZONE_COST_ID=Object.freeze({
@@ -8059,6 +8219,21 @@ const HVS_DEFAULT_FINISH_PRICE_CATALOG=(()=>{
     // CLADDING — illustrative CAD upgrades over the included wood_04 finish.
     add('cladding',{wood_01:0,wood_02:650,wood_03:1100,wood_04:0,wood_05:1600,wood_06:2400,wood_07:3100});
     add('facade',{'01':0,'02':4500,'03':8500,'04':12000});
+    // HVS FRONT FACADE/GARAGE — illustrative Canadian dollar upgrade values.
+    add('garage',{'01':0,'02':1200,'03':2400,'04':3900});
+    add('garageColor',{'01':0,'02':0,'03':0,'04':0,'05':0}); // Included garage colors, admin-editable.
+    const facadeStone=[0,1450,2850,4300];
+    const facadeWood=[0,550,850,1150,1550,2100,2750];
+    const facadeTiles=[0,650,1100,1750,2450];
+    for(const f of ['01','02','03','04']){
+        const stoneIncluded=f==='04'?'02':'01';
+        add(`F_${f}_stone`,Object.fromEntries(facadeStone.map((v,i)=>[String(i+1).padStart(2,'0'),String(i+1).padStart(2,'0')===stoneIncluded?0:v])));
+        add(`F_${f}_boundry_wall`,{'01':0,'02':0,'03':0,'04':0,'05':0});
+        add(`F_${f}_wood`,Object.fromEntries(facadeWood.map((v,i)=>[String(i+1).padStart(2,'0'),v])));
+        if(f!=='02')add(`F_${f}_cladding`,{'01':0,'02':0,'03':0,'04':0,'05':0});
+    }
+    add('F_04_tiles',Object.fromEntries(facadeTiles.map((v,i)=>[String(i+1).padStart(2,'0'),i===3?0:v])));
+
     // 01 is included in every new wall category. No invented wall-upgrade prices.
     for(const zone of ['wallColor','wallFeatLiving','wallFeatOffice','wallFeatMainBed']){
         const count=zone==='wallColor'?6:12;
@@ -8193,6 +8368,25 @@ function hvsSynchronizeLandscapingCost(profile){
 function hvsSynchronizeFinishCosts(profile){
     hvsEnsureFinishDefaults(profile);
     const settings=profile.settings;
+    // Price only the ACTIVE facade's exterior finishes; retain inactive choices for switching back.
+    profile.costOverrides['Garage Design Cost']=hvsFinishPrice('garage', settings.GarageDoor||'01');
+    profile.costOverrides['Garage Color Cost']=hvsFinishPrice('garageColor',settings.GarageColor||'03');
+    const activeFacade=settings.FacadeChoice||'01';
+    const facadeCategories={
+        '01':['stone','cladding','boundry_wall','wood'],
+        '02':['stone','boundry_wall','wood'],
+        '03':['stone','cladding','boundry_wall','wood'],
+        '04':['stone','cladding','boundry_wall','tiles','wood']
+    };
+    for(const [f,categories] of Object.entries(facadeCategories)){
+        for(const cat of categories){
+            const key=`F_${f}_${cat}`;
+            const label={stone:'Stone',cladding:'Cladding',boundry_wall:'Boundary Wall',tiles:'Tiles',wood:'Wood Accent'}[cat];
+            const costId=`Facade ${f} ${label} Cost`;
+            profile.costOverrides[costId]=f===activeFacade?hvsFinishPrice(key,settings[key]??HVS_DEFAULT_FINISH_SETTINGS[key]):0;
+        }
+    }
+
     // Remove legacy cost for area 10, now properly tracked as laminate flooring.
     delete profile.costOverrides['Kitchen Finish 10 Cost'];
     for(const [zone,key] of Object.entries(HVS_KITCHEN_ZONE_KEYS)){
