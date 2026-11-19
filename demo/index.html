@@ -5477,6 +5477,11 @@ body:is(.hvs-session-ending,.hvs-session-ended) #hvsSessionScreen{z-index:214748
 #homeViewUI #editOptionButtons .hvsFrontCard .hvsFacadeName,
 #homeViewUI #editOptionButtons .hvsFrontCard .hvsFacadeCost {font-size:11px;}
 </style>
+<style id="hvs-disable-startup-video-popup">
+/* This notice reports false video failures even when the Unreal stream works.
+   Keep all startup checks, adaptive bitrate, render reveal, and WebRTC intact. */
+#hvsStartupVideoStatus { display:none !important; pointer-events:none !important; }
+</style>
 <!-- ROOM-SENSITIVE PERSONALIZE MENU -->
 <div id="profileMenuWrapper">
     <div id="profileOuterBox" class="glassPanel">
@@ -6092,6 +6097,7 @@ function hvsPersonalizeOptionsForRoom(room) {
     }
     if (!buttons.includes('CHOOSE PROPERTY')) buttons.push('CHOOSE PROPERTY');
     return buttons;
+}
 let currentEditMenuRoom = null;
 let selectedEditMenuOption = null;
 const editOptionButtons = document.getElementById('editOptionButtons');
