@@ -20,3 +20,195 @@
 .board-col.drag-over{outline-color:var(--orange-bright)}
 .board-card:hover{border-color:rgba(222,50,8,.38)}
 .task-box{accent-color:var(--orange)}
+
+/* Team email draft feature (disabled sender by design). */
+.email-row{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:16px 0;border-bottom:1px solid var(--line)}
+.email-row:last-child{border-bottom:0}
+.email-row-main{flex:1;min-width:0}
+.email-row .secondary-btn{white-space:nowrap}
+.email-preview{font-size:12px;line-height:1.55;color:#667588;margin:8px 0;white-space:pre-line;overflow-wrap:anywhere}
+@media(max-width:700px){.email-row{flex-direction:column;gap:9px}}
+
+/* CRM notification center and individual alert preferences. */
+.topbar-actions{display:flex;align-items:center;gap:10px}
+.alert-bell{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:4px;min-width:42px;height:40px;border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--ink);font-size:21px;cursor:pointer}
+.alert-bell:hover{border-color:var(--orange)}
+.alert-pill{display:inline-block;min-width:17px;padding:3px 5px;border-radius:10px;color:#fff;background:var(--orange);font-size:10px;font-weight:800;text-align:center;line-height:1.2}
+.alert-bell .alert-pill{position:absolute;right:-7px;top:-7px}
+.alert-pill.hidden{display:none}
+.nav-btn .alert-pill{margin-left:auto}
+.alert-heading{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-bottom:16px}
+.alert-list{padding-top:5px}
+.alert-item{display:flex;justify-content:space-between;gap:14px;padding:17px 0;border-bottom:1px solid var(--line)}
+.alert-item:last-child{border-bottom:0}
+.alert-unread{border-left:3px solid var(--orange);padding-left:13px;background:linear-gradient(90deg,rgba(229,70,20,.04),transparent)}
+.alert-content{flex:1;min-width:0}
+.alert-content .info-text{margin:6px 0}
+.alert-actions{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap}
+.alert-preference{display:flex;align-items:center;gap:12px;margin:12px 0;font-size:12px;font-weight:600;cursor:pointer}
+.alert-preference input{width:17px;height:17px;accent-color:var(--orange)}
+@media(max-width:700px){
+ .topbar-actions{gap:8px}
+ .alert-bell{min-width:36px;height:38px}
+ .alert-item{flex-direction:column}
+ .alert-actions{justify-content:flex-start}
+}
+
+.push-setup{border-top:1px solid var(--line);margin-top:16px;padding-top:14px}.push-setup .secondary-btn{margin-top:8px}
+
+/* Solid, high-contrast notification bell and red unread bubble. Dynamic counts
+   are populated by the existing updateAlertBadge() logic; never fake alerts. */
+.alert-bell{
+  min-width:48px;height:48px;gap:0;
+  border:0;border-radius:12px;background:transparent;
+  color:#555;overflow:visible;flex-shrink:0;
+}
+.alert-bell:hover{background:#f5f6f8;border:0}
+.alert-bell:focus-visible{outline:2px solid var(--orange);outline-offset:2px}
+.alert-bell-svg{display:block;width:36px;height:36px;fill:currentColor;flex:none}
+.alert-bell .alert-pill{
+  top:0;right:0;min-width:26px;height:26px;
+  padding:3px 5px;border:3px solid #fff;border-radius:999px;
+  background:#ee333b;color:#fff;font:800 13px/14px Inter,Arial,sans-serif;
+  margin:0;
+}
+.nav-btn .alert-nav-icon{
+  position:relative;display:inline-flex;justify-content:center;align-items:center;
+  flex:0 0 25px;width:25px;height:25px;color:#555;
+}
+.nav-btn .alert-nav-icon .alert-bell-svg{width:23px;height:23px}
+.nav-btn .alert-nav-icon{color:#b9c5d6}
+.nav-btn.active .alert-nav-icon{color:#fff}
+.nav-btn .alert-nav-icon .alert-pill{
+  position:absolute;right:-8px;top:-7px;min-width:19px;height:19px;
+  margin:0;padding:1px 3px;border:2px solid #fff;border-radius:999px;
+  background:#ee333b;color:white;font:800 10px/13px Inter,Arial,sans-serif;
+}
+@media(max-width:700px){
+  .alert-bell{min-width:42px;height:42px}
+  .alert-bell-svg{width:32px;height:32px}
+  .alert-bell .alert-pill{top:-1px;right:-2px}
+}
+
+/* 2026-11-24 iPhone layout/zoom correction.
+   Keep pinch-to-zoom available for accessibility, but prevent automatic Safari
+   input-focus magnification and sideways page growth. */
+html{
+  width:100%;
+  max-width:100%;
+  -webkit-text-size-adjust:100%;
+  text-size-adjust:100%;
+}
+body{
+  width:100%;
+  max-width:100%;
+  overflow-x:clip;
+}
+.app,.workspace,#view{min-width:0;max-width:100%}
+.topbar .heading{min-width:0}
+.table-wrap,.board{max-width:100%}
+@media (max-width:700px){
+  .app{width:100%;min-height:100dvh}
+  .mobile-head{
+    width:100%;
+    min-width:0;
+    gap:10px;
+    padding-left:max(15px,env(safe-area-inset-left));
+    padding-right:max(15px,env(safe-area-inset-right));
+  }
+  .mobile-brand-logo{min-width:0;max-width:min(35vw,140px)}
+  .workspace{
+    width:100%;
+    min-width:0;
+    padding:20px max(14px,env(safe-area-inset-left)) 55px max(14px,env(safe-area-inset-right));
+  }
+  .topbar{flex-wrap:wrap;align-items:flex-start;gap:12px}
+  .topbar .heading{flex:1 1 190px;min-width:0;overflow-wrap:anywhere}
+  .topbar-actions{flex:0 0 auto;margin-left:auto;gap:7px}
+  .topbar .primary-btn{
+    max-width:min(158px,42vw);white-space:normal;
+    font-size:12px;line-height:1.25;padding:10px 11px;
+  }
+  .eyebrow{font-size:10px;letter-spacing:1.1px}
+  .heading h1{font-size:clamp(22px,6vw,27px)}
+  .subheading{font-size:12px;line-height:1.5}
+  .metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .metric,.panel,.field,.contact-row,.activity-row{min-width:0}
+  .panel-head{flex-wrap:wrap}
+  .detail-top{flex-wrap:wrap}
+  .field-list{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .toolbar{min-width:0}
+  .search{min-width:0;max-width:100%}
+  .modal-backdrop,.auth-layer{
+    width:100%;
+    max-width:100%;
+    padding:12px;
+    padding-top:max(12px,env(safe-area-inset-top));
+    padding-bottom:max(12px,env(safe-area-inset-bottom));
+    align-items:center;
+  }
+  .modal-card,.auth-card{
+    width:100%;
+    max-width:calc(100vw - 24px);
+    max-height:calc(100dvh - 24px);
+    min-width:0;
+    overscroll-behavior:contain;
+  }
+  .form-grid{grid-template-columns:minmax(0,1fr)}
+  .form-actions{flex-wrap:wrap}
+  /* iOS Safari / Chrome auto-zoom form controls below 16 CSS pixels. */
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,textarea,.search,.filter-select,
+  .field input,.field select,.field textarea,
+  .auth-form input,.auth-form select,.auth-form textarea{
+    font-size:16px!important;
+    line-height:1.35;
+  }
+}
+@media (max-width:400px){
+  .topbar .heading{flex-basis:100%}
+  .topbar-actions{width:100%;justify-content:space-between}
+  .field-list{grid-template-columns:minmax(0,1fr)}
+}
+
+/* Unified monochrome sidebar icons — matching the CRM notification bell.
+   All shapes are vector paths. No emoji, gradients or external icon assets. */
+.nav-btn .nav-icon-svg {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 25px;
+  width:25px;
+  height:25px;
+  color:#b9c5d6;
+}
+.nav-btn.active .nav-icon-svg,
+.nav-btn.active .alert-nav-icon { color:#fff; }
+.nav-btn .nav-icon-svg .sidebar-icon {
+  display:block;
+  width:23px;
+  height:23px;
+  color:inherit;
+  overflow:visible;
+}
+.nav-btn[data-nav="pipeline"] .sidebar-icon-funnel path {
+  fill:currentColor;
+  stroke:currentColor;
+  stroke-width:.35;
+  stroke-linejoin:round;
+}
+.nav-btn[data-nav="tasks"] .sidebar-icon-checklist path {
+  fill:none;
+  stroke:currentColor;
+  stroke-width:2.05;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+.nav-btn[data-nav="emails"] .sidebar-icon-envelope rect,
+.nav-btn[data-nav="emails"] .sidebar-icon-envelope path {
+  fill:none;
+  stroke:currentColor;
+  stroke-width:1.9;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
