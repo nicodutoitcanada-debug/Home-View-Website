@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8" />
 <!-- HVS launch freshness: refresh once before starting a new stream. -->
-<meta name="hvs-release" content="2026-11-15-mobile-test-14-reveal-rollback">
+<meta name="hvs-release" content="2026-11-27-basement-production">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function(){
@@ -16,7 +16,7 @@
     url.searchParams.delete('_hvs_launch');
     history.replaceState(history.state,'',url.href);
   }
-  window.homeViewRelease='2026-11-15-mobile-test-14-reveal-rollback';
+  window.homeViewRelease='2026-11-27-basement-production';
 })();
 </script>
 
@@ -2430,10 +2430,13 @@ body.cost-open #homeViewUI.is-ready #costScaleControl { transform:translate3d(0,
     border:1px solid rgba(255,255,255,.22);
     border-radius:22px;
     color:rgba(255,255,255,.98);
-    background:linear-gradient(155deg,rgba(94,110,111,.37),rgba(20,27,31,.87) 38%,rgba(12,19,23,.93));
-    box-shadow:0 18px 52px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.18);
-    backdrop-filter:blur(17.5px) saturate(125%);
-    -webkit-backdrop-filter:blur(17.5px) saturate(125%);
+    background:linear-gradient(163deg,
+        rgba(255,255,255,.095) 0%,
+        rgba(29,36,39,.25) 35%,
+        rgba(16,22,27,.40) 100%);
+    box-shadow:0 12px 35px rgba(0,0,0,.18),inset 0 1px 0 rgba(255,255,255,.13);
+    backdrop-filter:blur(15.4px) saturate(112%);
+    -webkit-backdrop-filter:blur(15.4px) saturate(112%);
     transform:translateY(12px) scale(.95);
     transition:transform .45s cubic-bezier(.22,1,.36,1);
 }
@@ -3059,15 +3062,26 @@ protected price storage, and user profile database.
     border:1px solid rgba(255,255,255,.23);border-radius:24px;
     padding:24px 22px 19px;box-sizing:border-box;
     font-family:"HomeView Myriad",Arial,sans-serif;
-    background:linear-gradient(145deg,rgba(96,105,107,.52),rgba(28,34,37,.84) 43%,rgba(17,23,26,.88));
-    -webkit-backdrop-filter:blur(13px) saturate(120%);backdrop-filter:blur(13px) saturate(120%);
+    background:linear-gradient(163deg,
+        rgba(255,255,255,.095) 0%,
+        rgba(29,36,39,.25) 35%,
+        rgba(16,22,27,.40) 100%);
+    -webkit-backdrop-filter:blur(15.4px) saturate(112%);backdrop-filter:blur(15.4px) saturate(112%);
     box-shadow:0 20px 65px rgba(0,0,0,.37),inset 0 1px 0 rgba(255,255,255,.15);
     color:white;transform:translateY(18px) scale(.94);
     transition:transform .55s cubic-bezier(.22,1,.36,1);
 }
 #hvsLayoutRoomPrompt.is-open #hvsLayoutRoomDialog { transform:translateY(0) scale(1); }
+/* Match the existing upstairs selector's compact close icon. A dedicated
+   balanced header keeps the title centered without overlapping the button. */
+#hvsLayoutRoomDialog .hvsLayoutOfferHeader {
+    display:grid;grid-template-columns:28px minmax(0,1fr) 28px;
+    align-items:center;column-gap:6px;margin:0 0 13px;
+}
 #hvsLayoutRoomDialog .layoutOfferTitle {
-    font-weight:700;letter-spacing:.09em;font-size:21px;text-align:center;margin:0 0 13px;
+    grid-column:2;grid-row:1;min-width:0;
+    font-weight:700;letter-spacing:.09em;font-size:21px;
+    line-height:1.2;text-align:center;margin:0;
 }
 #hvsLayoutRoomDialog .layoutOfferDescription {
     font-size:14px;line-height:1.45;font-weight:300;color:rgba(255,255,255,.88);
@@ -3080,16 +3094,15 @@ protected price storage, and user profile database.
     box-sizing:border-box;padding:3px;border:0;border-radius:12px;background:transparent;
 }
 #hvsLayoutRoomDialog .layoutChoiceButton {width:100%;min-height:47px;height:auto;padding:10px 7px;font-size:12px;white-space:normal;overflow-wrap:break-word;}
-/* Keep a touch-sized close control at the top while this card scrolls. */
 #hvsLayoutRoomClose {
-    position:sticky;top:0;float:right;z-index:2;display:grid;place-items:center;
-    width:44px;height:44px;margin:-10px -8px 0 6px;padding:0;
-    border:1px solid rgba(255,255,255,.3);border-radius:50%;
-    background:rgba(20,27,30,.94);color:#fff;font:28px/1 Arial,sans-serif;
+    grid-column:3;grid-row:1;justify-self:end;display:grid;place-items:center;
+    width:28px;height:28px;margin:0;padding:0;min-width:28px;min-height:28px;
+    border:0;border-radius:50%;
+    background:rgba(255,255,255,.11);color:white;
+    font:600 20px/1 "HomeView Myriad",Arial,sans-serif;
     cursor:pointer;touch-action:manipulation;
 }
 #hvsLayoutRoomClose:focus-visible {outline:2px solid #fff;outline-offset:2px;}
-#hvsLayoutRoomDialog .layoutOfferDescription {clear:both;}
 #hvsLayoutRoomDialog .layoutOfferDismiss {
     display:block;margin:16px auto 0;border:0;background:transparent;cursor:pointer;
     padding:7px 15px;color:rgba(255,255,255,.7);font:600 12px "HomeView Myriad",Arial,sans-serif;
@@ -3130,8 +3143,11 @@ protected price storage, and user profile database.
     box-sizing:border-box;border-radius:24px;padding:24px 23px 20px;
     color:white;font-family:"HomeView Myriad",Arial,sans-serif;
     border:1px solid rgba(255,255,255,.22);
-    background:linear-gradient(150deg,rgba(91,103,105,.53),rgba(28,35,38,.78) 48%,rgba(15,22,26,.83));
-    backdrop-filter:blur(12px) saturate(120%);-webkit-backdrop-filter:blur(12px) saturate(120%);
+    background:linear-gradient(163deg,
+        rgba(255,255,255,.095) 0%,
+        rgba(29,36,39,.25) 35%,
+        rgba(16,22,27,.40) 100%);
+    backdrop-filter:blur(15.4px) saturate(112%);-webkit-backdrop-filter:blur(15.4px) saturate(112%);
     box-shadow:0 20px 62px rgba(0,0,0,.30),inset 0 1px 0 rgba(255,255,255,.14);
     transform:translateY(17px) scale(.95);transition:transform .57s cubic-bezier(.22,1,.36,1);
 }
@@ -3292,9 +3308,12 @@ body.hvs-movie-active #screenshotOverlay {
 #homeViewUI #hvsPriceWindow .hvsPriceWindowCard { width:min(730px,100%); max-height:calc(100dvh - 28px);
     min-height:0; display:flex; flex-direction:column; box-sizing:border-box; overflow:hidden;
     border-radius:23px; color:rgba(255,255,255,.95); font-family:"HomeView Myriad",Arial,sans-serif;
-    background:linear-gradient(160deg,rgba(209,218,219,.13),rgba(35,44,48,.84) 28%,rgba(14,21,26,.95));
-    border:1px solid rgba(255,255,255,.18); box-shadow:0 18px 60px rgba(0,0,0,.38),inset 0 1px 0 rgba(255,255,255,.17);
-    backdrop-filter:blur(13px) saturate(115%); -webkit-backdrop-filter:blur(13px) saturate(115%);
+    background:linear-gradient(163deg,
+        rgba(255,255,255,.095) 0%,
+        rgba(29,36,39,.25) 35%,
+        rgba(16,22,27,.40) 100%);
+    border:1px solid rgba(255,255,255,.18); box-shadow:0 12px 35px rgba(0,0,0,.18),inset 0 1px 0 rgba(255,255,255,.13);
+    backdrop-filter:blur(15.4px) saturate(112%); -webkit-backdrop-filter:blur(15.4px) saturate(112%);
     transform:translateY(14px) scale(.97); transition:transform .48s cubic-bezier(.22,1,.36,1); }
 #hvsPriceWindow.is-open .hvsPriceWindowCard {transform:translateY(0) scale(1);}
 #hvsPriceWindow .hvsPriceWindowHeader { flex-shrink:0; justify-content:space-between; padding:13px 19px; }
@@ -4039,14 +4058,18 @@ html.hvs-ios-viewport-stable #homeViewUI {
  position:fixed;inset:0;z-index:13000;
  display:flex;align-items:center;justify-content:center;
  padding:16px max(18px,env(safe-area-inset-right)) max(16px,env(safe-area-inset-bottom)) max(18px,env(safe-area-inset-left));
- background:rgba(0,0,0,.44);box-sizing:border-box;pointer-events:auto;
- backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
+ background:rgba(0,0,0,.16);box-sizing:border-box;pointer-events:auto;
+ backdrop-filter:none;-webkit-backdrop-filter:none;
 }
 .hvsAdminSettingsCard{
  width:min(355px,95%);padding:18px 20px;box-sizing:border-box;text-align:center;
  border-radius:20px;border:1px solid rgba(255,255,255,.24);
- background:linear-gradient(145deg,rgba(66,75,80,.97),rgba(24,28,31,.98));
- color:white;box-shadow:0 14px 45px rgba(0,0,0,.35);
+ background:linear-gradient(163deg,
+        rgba(255,255,255,.095) 0%,
+        rgba(29,36,39,.25) 35%,
+        rgba(16,22,27,.40) 100%);
+ backdrop-filter:blur(15.4px) saturate(112%);-webkit-backdrop-filter:blur(15.4px) saturate(112%);
+ color:white;box-shadow:0 12px 35px rgba(0,0,0,.18);
  font-family:'HomeView Myriad',Arial,sans-serif;
 }
 #hvsAdminSettingsTitle{font-weight:700;font-size:17px;letter-spacing:.06em;}
@@ -4802,15 +4825,19 @@ body:is(.walk-mode,.camera-mode,.building-mode,.environment-mode,.teleport-mode)
  display:flex;align-items:center;justify-content:center;
  padding:max(12px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right))
          max(12px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));
- background:rgba(0,0,0,.58);pointer-events:auto;
+ background:rgba(0,0,0,.18);pointer-events:auto;
  font-family:"HomeView Myriad",Arial,sans-serif;
 }
 #hvsAdminSwitchPrompt .hvsAdminSwitchCard {
  width:min(420px,100%);max-height:calc(100dvh - 24px);overflow:auto;box-sizing:border-box;
  padding:clamp(16px,3vw,26px);border-radius:23px;text-align:center;
  border:1px solid rgba(255,255,255,.20);
- background:linear-gradient(165deg,rgba(94,101,104,.96),rgba(37,46,49,.98) 53%,rgba(19,25,29,.99));
- box-shadow:0 22px 68px rgba(0,0,0,.56),inset 0 1px rgba(255,255,255,.17);
+ background:linear-gradient(163deg,
+        rgba(255,255,255,.095) 0%,
+        rgba(29,36,39,.25) 35%,
+        rgba(16,22,27,.40) 100%);
+ backdrop-filter:blur(15.4px) saturate(112%);-webkit-backdrop-filter:blur(15.4px) saturate(112%);
+ box-shadow:0 12px 35px rgba(0,0,0,.18),inset 0 1px 0 rgba(255,255,255,.13);
  color:#fff;animation:hvsAdminPopupAppear .34s cubic-bezier(.22,1,.36,1) both;
 }
 #hvsAdminSwitchTitle {font-size:clamp(15px,2vw,19px);font-weight:700;letter-spacing:.055em;line-height:1.2;}
@@ -4957,7 +4984,7 @@ body.hvs-audio-ready:not(.hvs-session-ended):not(.hvs-movie-active)
  width:min(1080px, 97vw, calc((100dvh - 131px) * 2.0628 + 30px)); max-width:100%; max-height:calc(100dvh - 16px);
  padding:12px 14px 10px; overflow:hidden; display:flex; flex-direction:column;
  border-radius:23px; box-sizing:border-box;
- background:linear-gradient(155deg,rgba(83,100,106,.63),rgba(25,33,37,.90) 30%,rgba(12,19,23,.95));
+ background:linear-gradient(163deg,rgba(255,255,255,.095) 0%,rgba(29,36,39,.25) 35%,rgba(16,22,27,.40) 100%);
 }
 #hvsPropertyDialog .hvsMapHeading {display:flex;align-items:center;justify-content:space-between;gap:8px;flex:none;padding:0 6px 8px;}
 #hvsPropertyDialog .hvsMapHeading h2 {font-size:clamp(14px,2.4dvh,20px);text-align:left;margin:0 0 3px;letter-spacing:.09em;}
@@ -5024,7 +5051,7 @@ body.hvs-audio-ready:not(.hvs-session-ended):not(.hvs-movie-active)
 /* Non-modal: no full-screen blur, backdrop, focus trap, or click interception. */
 #hvsPropertyIntroduction{position:fixed;inset:0;z-index:15990;display:flex;align-items:center;justify-content:center;padding:12px;box-sizing:border-box;visibility:hidden;opacity:0;pointer-events:none;background:transparent;backdrop-filter:none;-webkit-backdrop-filter:none;transition:opacity .2s ease,visibility .2s ease;}
 #hvsPropertyIntroduction.is-open{visibility:visible;opacity:1;}
-#hvsPropertyIntroductionCard{pointer-events:auto;width:min(390px,calc(100vw - 24px));max-height:calc(100dvh - 20px);overflow:auto;box-sizing:border-box;padding:19px 20px 17px;color:#fff;border:1px solid rgba(255,255,255,.25);border-radius:19px;background:linear-gradient(145deg,rgba(59,69,72,.94),rgba(13,21,25,.96));box-shadow:0 12px 34px rgba(0,0,0,.32);font-family:"HomeView Myriad",Arial,sans-serif;text-align:center;}
+#hvsPropertyIntroductionCard{pointer-events:auto;width:min(390px,calc(100vw - 24px));max-height:calc(100dvh - 20px);overflow:auto;box-sizing:border-box;padding:19px 20px 17px;color:#fff;border:1px solid rgba(255,255,255,.25);border-radius:19px;background:linear-gradient(163deg,rgba(255,255,255,.095) 0%,rgba(29,36,39,.25) 35%,rgba(16,22,27,.40) 100%);backdrop-filter:blur(15.4px) saturate(112%);-webkit-backdrop-filter:blur(15.4px) saturate(112%);box-shadow:0 12px 34px rgba(0,0,0,.22);font-family:"HomeView Myriad",Arial,sans-serif;text-align:center;}
 #hvsPropertyIntroductionCard h2{font-size:17px;letter-spacing:.07em;line-height:1.2;margin:0 0 10px;}
 #hvsPropertyIntroductionCard p{font-size:13px;line-height:1.4;margin:0 0 15px;color:rgba(255,255,255,.88);}
 .hvsPropertyIntroActions{display:flex;flex-wrap:wrap;justify-content:center;gap:9px;}
@@ -5733,8 +5760,10 @@ body:is(.hvs-session-ending,.hvs-session-ended) #hvsSessionScreen{z-index:214748
      windows can be temporarily hidden, then restored, without closing. -->
 <div id="hvsLayoutRoomPrompt" role="presentation" aria-hidden="true">
   <section id="hvsLayoutRoomDialog" role="dialog" aria-modal="false" aria-labelledby="hvsLayoutRoomTitle" aria-describedby="hvsLayoutRoomDescription">
-    <button id="hvsLayoutRoomClose" type="button" aria-label="Close layout options">×</button>
-    <h2 class="layoutOfferTitle" id="hvsLayoutRoomTitle">MAKE THIS SPACE YOURS</h2>
+    <div class="hvsLayoutOfferHeader">
+      <h2 class="layoutOfferTitle" id="hvsLayoutRoomTitle">MAKE THIS SPACE YOURS</h2>
+      <button id="hvsLayoutRoomClose" type="button" aria-label="Close layout options">×</button>
+    </div>
     <p class="layoutOfferDescription" id="hvsLayoutRoomDescription">Enjoy an open upstairs lounge, or turn this space into an additional bedroom. You can change your choice anytime in <strong>Teleport Map → Upstairs Layout</strong>.</p>
     <div class="layoutOfferButtons">
       <div class="hvsLayoutPreviewChoice">
@@ -6083,6 +6112,7 @@ const EDIT_MENU_BUTTONS_BY_ROOM = Object.freeze({
     FloorsOnly:        ['CARPETS'],
     FloorsOnlyMainBed: ['FLOORING'],
     Outside:           ['CLADDING', 'LANDSCAPING', 'CHOOSE PROPERTY'],
+    Basement:          ['CHOOSE LAYOUT', 'BASEMENT KITCHEN', 'CHOOSE PROPERTY'],
     OutsideFront:      ['FACADE 01', 'FACADE 02', 'FACADE 03', 'FACADE 04', 'CHOOSE PROPERTY', 'GARAGE DESIGN', 'COLORS']
 });
 const HVS_WASHROOM_ROOM_NAMES = new Set(['GroundWashroom','UpperWashroom','MainBedWashroom']);
@@ -6090,7 +6120,7 @@ function hvsPersonalizeOptionsForRoom(room) {
     const buttons=[...(EDIT_MENU_BUTTONS_BY_ROOM[room] || [])];
     // All indoor rooms except washrooms can change the common wall colour.
     // Outside keeps only cladding, landscaping and property selection.
-    if(room && room!=='Outside' && room!=='OutsideFront' && !HVS_WASHROOM_ROOM_NAMES.has(room)) {
+    if(room && room!=='Outside' && room!=='OutsideFront' && room!=='Basement' && !HVS_WASHROOM_ROOM_NAMES.has(room)) {
         buttons.push('WALL COLOR');
         if(hvsFeatureWallZoneForRoom(room))buttons.push('FEATURE WALL COLOR');
         buttons.push('CHOOSE PROPERTY');
@@ -6284,7 +6314,11 @@ function renderEditMenu() {
         // During the brief verification window the buttons are shown only to
         // establish the correct panel geometry; they become interactive as soon
         // as the fresh room is confirmed.
-        button.disabled = personalizeCheckPending;
+        const kitchenUnavailable=displayRoom==='Basement'&&option==='BASEMENT KITCHEN'&&
+          window.homeViewBasementKitchenEnabled?.()!==true;
+        button.disabled = personalizeCheckPending || kitchenUnavailable;
+        button.classList.toggle('hvsBasementUnavailable',kitchenUnavailable);
+        button.setAttribute('aria-disabled',String(kitchenUnavailable));
         button.setAttribute('aria-busy', String(personalizeCheckPending));
         if(option==='LANDSCAPING' && displayRoom==='Outside'){
             const enabled=window.homeViewGetLandscaping?.()!=='off';
@@ -6314,6 +6348,15 @@ function renderEditMenu() {
             }
             if(currentEditMenuRoom==='OutsideFront' && option==='COLORS'){
                 hvsFrontNavigate({page:'colors'});return;
+            }
+            if(option==='CHOOSE LAYOUT' && currentEditMenuRoom==='Basement') {
+                window.homeViewOpenBasementLayoutOptions?.();
+                return;
+            }
+            if(option==='BASEMENT KITCHEN' && currentEditMenuRoom==='Basement') {
+                if(window.homeViewBasementKitchenEnabled?.()===true)
+                    window.homeViewOpenBasementKitchenOptions?.();
+                return;
             }
             if(option==='CHOOSE PROPERTY') {
                 window.homeViewOpenPropertySelector?.();
@@ -6844,7 +6887,8 @@ let liveMapPlayerFloor = null;
 // Keep the last known floor between the two thresholds (hysteresis),
 // preventing the marker flickering when standing on stairs.
 const LIVE_MAP_FLOOR_THRESHOLD = Object.freeze({
-    groundBelow: 310,   // a value BELOW 310 means Ground Floor
+    basementBelow: 80, // Ground camera is normally about 183; basement is at least one storey below.
+    groundBelow: 310,   // a value BELOW 310, but ABOVE 80, means Ground Floor
     firstAbove: 350     // a value ABOVE 350 means First Floor
 });
 
@@ -6856,7 +6900,8 @@ function updateLiveMapPlayerFloor(heightValue) {
     if (height === null) return false;
     liveMapCameraHeight = height;
     liveMapFloorReceivedAt = Date.now();
-    if (height < LIVE_MAP_FLOOR_THRESHOLD.groundBelow) liveMapPlayerFloor = 'ground';
+    if (height < LIVE_MAP_FLOOR_THRESHOLD.basementBelow) liveMapPlayerFloor = 'basement';
+    else if (height < LIVE_MAP_FLOOR_THRESHOLD.groundBelow) liveMapPlayerFloor = 'ground';
     else if (height > LIVE_MAP_FLOOR_THRESHOLD.firstAbove) liveMapPlayerFloor = 'first';
     // In the gap, hold the previous floor. If unknown, render at 50%.
     queueLiveMapDraw();
@@ -6950,6 +6995,9 @@ function hvsIsAtFrontOfHouse(px,py){
            (py>=1940);
 }
 function hvsRoomFromMapPosition(x,y,floor) {
+    // The basement has one set of Personalize options throughout, regardless of XY.
+    // The WORLD camera height sets floor='basement' above, so no basement polygons are needed.
+    if(floor==='basement')return 'Basement';
     if(!Number.isFinite(x)||!Number.isFinite(y)||!['ground','first'].includes(floor))return null;
     const point=mapWorldToImage(x,y);
     const px=point.px,py=point.py;
@@ -7630,7 +7678,7 @@ function openTeleportMenu() {
         // plan and target entrance has started; no extra panel measurements.
         setTimeout(()=>{
           if(thisOpenId!==teleportFloorTransitionId || !body.classList.contains('teleport-mode'))return;
-          document.getElementById('teleportOuterBox').classList.toggle('hvs-layout-intro',currentTeleportFloor==='first');
+          document.getElementById('teleportOuterBox').classList.toggle('hvs-layout-intro',currentTeleportFloor==='first'||currentTeleportFloor==='basement');
         },450);
 
         const inDuration = getTargetSequenceDuration(currentTeleportFloor);
@@ -7864,7 +7912,7 @@ async function setTeleportFloor(floor) {
     if (transitionId !== teleportFloorTransitionId || !body.classList.contains('teleport-mode')) return;
     showJumpTargets(floor);
 
-    if(floor==='first')setTimeout(()=>{
+    if(floor==='first'||floor==='basement')setTimeout(()=>{
       if(transitionId !== teleportFloorTransitionId || !body.classList.contains('teleport-mode'))return;
       outer.classList.add('hvs-layout-intro');
     },320);
@@ -10553,6 +10601,7 @@ function receiveUnrealResponse(response) {
   console.log('Response from Unreal:', response);
   if (data && typeof data === 'object') {
     window.homeViewReceiveProjectChange?.(data);
+    if (data.basement_message === 'send') window.homeViewShowBasementOfferOnce?.();
     if (Object.prototype.hasOwnProperty.call(data, 'EditMenuOptions')) {
       window.homeViewSetEditMenuOptions(data.EditMenuOptions);
     }
@@ -11925,7 +11974,7 @@ if (dev_mode) {
     const scale = r.height / (rail.offsetHeight || r.height || 1);
     if (!r.height || !scale) return;
     const floorBottom = floors.getBoundingClientRect().bottom;
-    const onFirst = map.dataset.floor === 'first';
+    const onFirst = map.dataset.floor === 'first' || map.dataset.floor === 'basement';
     const limit = onFirst && getComputedStyle(explainer).display !== 'none'
       ? explainer.getBoundingClientRect().top : r.bottom - 6 * scale;
     const available = Math.max(0,(limit - floorBottom) / scale);
@@ -13169,4 +13218,643 @@ window.addEventListener('keyup',event=>{
 <script src="hvs-buyer-auth.js" defer></script>
 <script src="hvs-design-restore.js" defer></script>
 <script src="hvs-leads.js?v=20261110-group-alerts-1" defer></script>
+<script id="hvs-basement-local-test">
+/* ================================================================
+   HVS BASEMENT TEST - additional teleport floor, layouts and kitchens.
+   Runs AFTER the existing game UI script. No Arcware or quality changes.
+   ================================================================ */
+(() => {
+  'use strict';
+  if (typeof teleportFloorButtons === 'undefined' ||
+      typeof jumpTargetData === 'undefined' ||
+      typeof setActiveTeleportPlan !== 'function' ||
+      typeof hvsPrices !== 'function') {
+    console.error('[BASEMENT] Main teleport/calculator system unavailable');
+    return;
+  }
+
+  const LAYOUTS = Object.freeze([
+    {id:'unfinished',label:'UNFINISHED',plan:'basement.png',thumb:'basement-thumb.png',price:0},
+    {id:'finished',label:'FINISHED',plan:'basement_finished.png',thumb:'basement_finished-thumb.png',price:34000},
+    {id:'one_bedroom',label:'ONE BEDROOM',plan:'basement_one_bedroom.png',thumb:'basement_one_bedroom-thumb.png',price:46500},
+    {id:'two_bedroom',label:'TWO BEDROOM',plan:'basement_two_bedroom.png',thumb:'basement_two_bedroom-thumb.png',price:58500}
+  ]);
+  // Unreal string values are case- and whitespace-sensitive. Use the values
+  // given in the user's message contract for adding a kitchen. No kitchen
+  // selection is transmitted automatically at startup or on layout selection.
+  const KITCHENS = Object.freeze([
+    {id:'none',label:'NO KITCHEN',command:'remove_kitchen',price:0},
+    {id:'kitchen01',label:'KITCHEN 01',command:' kitchen01',price:7200},
+    {id:'kitchen02',label:'KITCHEN 02',command:' kitchen02',price:11300}
+  ]);
+  const hvsBasementMessages=[];
+  const ASSET_FALLBACK='https://nicodutoitcanada-debug.github.io/Home-View-Demo-Test/';
+  function setBasementImageSource(image,filename){
+    image.onerror=()=>{
+      if(image.dataset.hvsBasementFallback==='yes'){
+        image.onerror=null;
+        console.warn('[BASEMENT] Image could not load:',filename);
+        return;
+      }
+      image.dataset.hvsBasementFallback='yes';
+      image.src=ASSET_FALLBACK+filename;
+    };
+    image.src=filename;
+  }
+  const stage = document.getElementById('teleportMapStage');
+  const outer = document.getElementById('teleportOuterBox');
+  const rail = document.getElementById('teleportMobileRail');
+  const floorGroup = document.getElementById('teleportFloorButtons');
+  const firstLayoutTrigger = document.getElementById('upstairsLayoutOpen');
+  const explainer=document.getElementById('teleportMobileLayoutExplainer');
+  const explainerHeading=explainer?.querySelector('strong');
+  const explainerDescription=explainer?.querySelector('span');
+  if (!stage || !outer || !rail || !floorGroup || !firstLayoutTrigger ||
+      !explainerHeading || !explainerDescription) return;
+  const firstFloorHeading=explainerHeading.textContent;
+  const firstFloorDescription=explainerDescription.textContent;
+  const basementDescription='Keep your basement unfinished, or create a finished space with up to two bedrooms. You can change it anytime.';
+  function syncFloorExplainer(floor) {
+    // Same LAYOUT OPTIONS heading, same width and almost identical text length.
+    explainerHeading.textContent=firstFloorHeading;
+    explainerDescription.textContent=floor==='basement'?basementDescription:firstFloorDescription;
+  }
+
+  const css = document.createElement('style');
+  css.id='hvs-basement-test-local-style';
+  css.textContent = `
+    /* Match the existing floor button and plan image appearance. */
+    #teleportFloorButtons #teleportBasementButton {font-size:inherit;}
+    #teleportMapStage[data-floor="basement"] #teleportYouAreHereLayer {display:none!important;}
+    /* Same plan dimensions and 1.12s fade, above the plan and below teleport targets. */
+    #teleportMapStage .hvsBasementKitchenOverlay {
+      position:absolute;inset:0;z-index:2;width:100%;height:100%;object-fit:fill;
+      opacity:0;pointer-events:none;transition:opacity 1.12s ease-in-out;
+    }
+    #teleportMapStage[data-floor="basement"] .hvsBasementKitchenOverlay.active {opacity:1;}
+    #teleportMapStage:not([data-floor="basement"]) .hvsBasementKitchenOverlay {opacity:0!important;}
+    /* Match the original FIRST FLOOR rail. Same logo, LAYOUT OPTIONS,
+       right-hand spacing, bottom button and entrance easing. */
+    #teleportOuterBox:has(#teleportMapStage[data-floor="basement"]) #teleportMobileLayoutExplainer {
+      display:block;opacity:0;translate:0 12px;
+      transition:opacity .7s ease,translate .8s cubic-bezier(.22,1,.36,1);
+    }
+    #teleportOuterBox.hvs-layout-intro:has(#teleportMapStage[data-floor="basement"]) #teleportMobileLayoutExplainer {
+      opacity:1;translate:0 0;
+    }
+    #teleportMobileRail #basementLayoutOpen {
+      display:none;position:relative;left:auto;bottom:auto;transform:none;
+      box-sizing:border-box;order:5;flex-shrink:0;
+      width:100%;max-width:none;margin-top:4px;
+      min-height:clamp(34px,9dvh,44px);padding:6px 7px;
+      font:700 clamp(9px,2.4dvh,11px)/1.12 "HomeView Myriad",Arial,sans-serif;
+      letter-spacing:.015em;text-align:center;white-space:normal;
+      border:1px solid rgba(255,78,18,.62);border-radius:999px;
+      background:linear-gradient(145deg,rgba(255,78,18,.77),rgba(153,39,12,.72));
+      box-shadow:0 4px 17px rgba(0,0,0,.20),inset 0 1px 0 rgba(255,255,255,.18);
+      color:#fff;cursor:pointer;touch-action:manipulation;
+      opacity:0;visibility:hidden;pointer-events:none;translate:0 12px;
+      transition:opacity .68s ease,translate .78s cubic-bezier(.22,1,.36,1),visibility 0s linear .68s,background .2s ease;
+    }
+    #teleportOuterBox:has(#teleportMapStage[data-floor="basement"]) #basementLayoutOpen {
+      display:block;
+    }
+    #teleportOuterBox.hvs-layout-intro:has(#teleportMapStage[data-floor="basement"]) #basementLayoutOpen {
+      opacity:1;translate:0 0;visibility:visible;pointer-events:auto;
+    }
+    #teleportMobileRail #basementLayoutOpen:hover {
+      background:linear-gradient(145deg,rgba(255,78,18,.91),rgba(188,51,14,.87));
+    }
+    /* Unlike the original first-floor button, this one is mounted dynamically
+       and display:none while another floor is selected. CSS transitions can be
+       skipped on the first visible frame. Explicitly play the SAME .68s fade
+       and .78s slide as the existing first-floor layout button. */
+    @keyframes hvsBasementLayoutFadeIn {
+      from {opacity:0;}
+      to {opacity:1;}
+    }
+    @keyframes hvsBasementLayoutSlideIn {
+      from {translate:0 12px;}
+      to {translate:0 0;}
+    }
+    #teleportOuterBox:not(.hvs-layout-intro) #basementLayoutOpen {
+      opacity:0!important;visibility:hidden;pointer-events:none;
+      translate:0 12px;animation:none;
+    }
+    #teleportOuterBox.hvs-layout-intro:has(#teleportMapStage[data-floor="basement"]) #basementLayoutOpen {
+      /* Show during (not after) the fade; the old .68s visibility delay
+         concealed the entire opacity transition on Safari/Chromium. */
+      transition:opacity .68s ease,translate .78s cubic-bezier(.22,1,.36,1),
+                 visibility 0s linear 0s,background .2s ease;
+      animation:hvsBasementLayoutFadeIn .68s ease both,
+                hvsBasementLayoutSlideIn .78s cubic-bezier(.22,1,.36,1) both;
+    }
+    @media (prefers-reduced-motion:reduce) {
+      #teleportOuterBox.hvs-layout-intro:has(#teleportMapStage[data-floor="basement"]) #basementLayoutOpen {
+        animation-duration:.01ms,.01ms;
+      }
+    }
+
+    /* Kitchen selection moves BELOW the actual basement plan, into its
+       existing open area. It does not consume rail height or shift the logo. */
+    #teleportMapStage #basementKitchenOpen {
+      position:absolute;z-index:12;left:50%;bottom:22.5%;
+      transform:translateX(-50%);width:64%;max-width:310px;
+      box-sizing:border-box;min-height:clamp(29px,6.8dvh,43px);padding:6px 5px;
+      border:1px solid rgba(255,78,18,.62);border-radius:999px;
+      background:linear-gradient(145deg,rgba(255,78,18,.77),rgba(153,39,12,.72));
+      box-shadow:0 4px 17px rgba(0,0,0,.20),inset 0 1px 0 rgba(255,255,255,.18);
+      backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+      color:#fff;font:700 clamp(8px,1.65vw,11px)/1.12 "HomeView Myriad",Arial,sans-serif;
+      text-align:center;letter-spacing:.012em;white-space:normal;
+      cursor:pointer;touch-action:manipulation;
+      display:none;opacity:0;visibility:hidden;pointer-events:none;
+      translate:0 12px;
+      transition:opacity .68s ease,translate .78s cubic-bezier(.22,1,.36,1),visibility 0s linear .68s,background .2s ease;
+    }
+    #teleportMapStage[data-floor="basement"][data-basement-layout]:not([data-basement-layout="unfinished"]) #basementKitchenOpen {
+      display:block;
+    }
+    #teleportOuterBox.hvs-layout-intro #teleportMapStage[data-floor="basement"][data-basement-layout]:not([data-basement-layout="unfinished"]) #basementKitchenOpen {
+      opacity:1;translate:0 0;visibility:visible;pointer-events:auto;
+    }
+    #teleportMapStage #basementKitchenOpen:hover {
+      background:linear-gradient(145deg,rgba(255,78,18,.91),rgba(188,51,14,.87));
+    }
+    #teleportMobileRail #basementLayoutOpen:focus-visible,
+    #teleportMapStage #basementKitchenOpen:focus-visible {
+      outline:2px solid rgba(255,78,18,.85);outline-offset:2px;
+    }
+    @media (orientation:landscape) and (max-height:440px) {
+      #teleportMapStage #basementKitchenOpen {
+        min-height:25px;padding:4px 3px;font-size:clamp(7px,1.9dvh,10px);
+      }
+    }
+    .hvsBasementOverlay {
+      position:absolute;inset:0;z-index:65;display:flex;align-items:center;justify-content:center;
+      /* A dark half-opaque scrim obscured the glass behind the dialog. */
+      background:rgba(4,8,10,.16);padding:10px;box-sizing:border-box;
+      opacity:0;visibility:hidden;pointer-events:none;
+      transition:opacity .28s ease,visibility 0s linear .28s;
+    }
+    .hvsBasementOverlay.is-open {
+      opacity:1;visibility:visible;pointer-events:auto;
+      transition:opacity .28s ease,visibility 0s linear 0s;
+    }
+    .hvsBasementDialog {
+      box-sizing:border-box;max-height:calc(100% - 8px);overflow:auto;
+      width:min(510px,100%);padding:14px 15px;border-radius:20px;
+      border:1px solid rgba(255,255,255,.22);
+      color:rgba(255,255,255,.98);
+      /* Use EXACTLY the established translucent .glassPanel color/blur levels.
+         The previous dark gradient ended at 93% opacity and hid the blur. */
+      background:linear-gradient(163deg,
+        rgba(255,255,255,.095) 0%,
+        rgba(29,36,39,.25) 35%,
+        rgba(16,22,27,.40) 100%);
+      box-shadow:0 12px 35px rgba(0,0,0,.18),
+        inset 0 1px 0 rgba(255,255,255,.13),
+        inset 0 0 0 1px rgba(255,255,255,.025);
+      backdrop-filter:blur(15.4px) saturate(112%);
+      -webkit-backdrop-filter:blur(15.4px) saturate(112%);
+      transform:translateY(12px) scale(.96);
+      transition:transform .45s cubic-bezier(.22,1,.36,1);
+    }
+    .hvsBasementOverlay.is-open .hvsBasementDialog {transform:translateY(0) scale(1);}
+    .hvsBasementOptions {
+      display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px;
+    }
+    .hvsBasementChoice {
+      min-width:0;display:flex;flex-direction:column;gap:5px;
+    }
+    .hvsBasementThumb {
+      display:block;width:100%;height:clamp(65px,21dvh,120px);object-fit:contain;
+      background:transparent;border:0;border-radius:9px;box-sizing:border-box;
+    }
+    .hvsBasementChoice .layoutChoiceButton {
+      height:auto;min-height:39px;padding:7px 5px;border-radius:14px;
+      white-space:normal;overflow-wrap:break-word;line-height:1.2;
+    }
+    .hvsBasementChoice .layoutChoiceButton.is-selected {
+      border-color:rgba(255,78,18,.8);
+      background:linear-gradient(160deg,rgba(255,78,18,.77),rgba(165,43,12,.82));
+    }
+    .hvsBasementChoice .hvsKitchenPlaceholder {
+      display:flex;align-items:center;justify-content:center;
+      background:rgba(10,17,22,.36);border:1px solid rgba(255,255,255,.13);
+      color:rgba(255,255,255,.60);letter-spacing:.065em;
+      font:700 10px "HomeView Myriad",Arial,sans-serif;
+    }
+    .hvsBasementFoot {font:300 10px/1.35 "HomeView Myriad",Arial,sans-serif;opacity:.8;margin:10px 0 0;text-align:center;}
+    /* Put basement dialogs at document.body level for EVERY entry path.
+       #teleportOuterBox and #teleportMenuWrapper have backdrop filters; a
+       nested modal cannot sample the Unreal scene outside that backdrop root.
+       Body placement fixes both Teleport and Personalize versions equally. */
+    body > .hvsBasementOverlay.hvsBasementExternal {
+      position:fixed;inset:0;z-index:16030;max-height:none;overflow:auto;
+      padding:12px max(12px,env(safe-area-inset-right)) 12px max(12px,env(safe-area-inset-left));
+    }
+    body > .hvsBasementOverlay.hvsBasementExternal .hvsBasementDialog {
+      max-height:min(94dvh,740px);max-width:min(510px,96vw);
+    }
+    #homeViewUI #editOptionButtons .hvsBasementUnavailable {
+      opacity:.42;cursor:not-allowed;filter:saturate(.45);
+      border-color:rgba(255,255,255,.2);
+    }
+    #hvsBasementOfferPrompt {
+      position:fixed;inset:0;z-index:16015;display:flex;align-items:center;justify-content:center;
+      padding:20px;box-sizing:border-box;background:transparent;
+      opacity:0;visibility:hidden;pointer-events:none;
+      transition:opacity .32s ease,visibility 0s linear .32s;
+    }
+    #hvsBasementOfferPrompt.is-open {opacity:1;visibility:visible;transition-delay:0s;}
+    #hvsBasementOfferDialog {
+      pointer-events:auto;width:min(430px,100%);max-height:90dvh;overflow:auto;
+      border:1px solid rgba(255,255,255,.23);border-radius:24px;
+      padding:22px 22px 18px;box-sizing:border-box;
+      font-family:'HomeView Myriad',Arial,sans-serif;color:#fff;text-align:center;
+      background:linear-gradient(163deg,
+        rgba(255,255,255,.095) 0%,
+        rgba(29,36,39,.25) 35%,
+        rgba(16,22,27,.40) 100%);
+      backdrop-filter:blur(15.4px) saturate(112%);-webkit-backdrop-filter:blur(15.4px) saturate(112%);
+      box-shadow:0 20px 65px rgba(0,0,0,.37),inset 0 1px 0 rgba(255,255,255,.15);
+      transform:translateY(18px) scale(.94);transition:transform .55s cubic-bezier(.22,1,.36,1);
+    }
+    #hvsBasementOfferPrompt.is-open #hvsBasementOfferDialog {transform:translateY(0) scale(1);}
+    #hvsBasementOfferDialog h2 {font-size:20px;letter-spacing:.08em;margin:6px 0 12px;}
+    #hvsBasementOfferDialog p {font-size:14px;line-height:1.45;font-weight:300;color:rgba(255,255,255,.88);margin:0 0 18px;}
+    #hvsBasementOfferActions {display:flex;gap:10px;justify-content:center;flex-wrap:wrap;}
+    #hvsBasementOfferActions button {min-height:43px;padding:9px 16px;cursor:pointer;
+      border-radius:99px;border:1px solid rgba(255,255,255,.25);
+      background:rgba(255,255,255,.10);color:white;font:700 11px 'HomeView Myriad',Arial,sans-serif;}
+    #hvsBasementOfferYes {background:linear-gradient(155deg,#ef571e,#a93310)!important;border-color:#ee5623!important;}
+    #hvsBasementOfferDismiss {opacity:.8;}
+    /* Kitchen thumbnails share the first row. The no-kitchen choice is a
+       single centered action below them, without a placeholder thumbnail. */
+    #basementKitchenOverlay .hvsBasementNoKitchenChoice {
+      grid-column:1 / -1;justify-content:center;align-items:center;
+      min-height:0;padding:5px 0 1px;
+    }
+    #basementKitchenOverlay .hvsBasementNoKitchenChoice .layoutChoiceButton {
+      width:min(100%,255px);
+    }
+    @media(max-width:500px){
+      #hvsBasementOfferDialog {padding:17px 15px;border-radius:19px;}
+      #hvsBasementOfferDialog h2 {font-size:17px;}
+      #hvsBasementOfferDialog p {font-size:12px;}
+    }
+    @media(prefers-reduced-motion:reduce){
+      #hvsBasementOfferPrompt,#hvsBasementOfferDialog {transition-duration:.01ms;}
+    }
+    @media(max-height:440px) {
+      .hvsBasementDialog {padding:9px 11px;}
+      .hvsBasementOptions {gap:5px;margin-top:6px;}
+      .hvsBasementThumb {height:clamp(40px,15dvh,83px);}
+      .hvsBasementChoice .layoutChoiceButton {min-height:28px;font-size:9px;padding:5px 3px;}
+    }
+  `;
+  document.head.appendChild(css);
+
+  // Reuse the original teleport floor switching and staggered target entrance.
+  const basementButton=document.createElement('button');
+  basementButton.id='teleportBasementButton';
+  basementButton.type='button';basementButton.className='teleportFloorButton';
+  basementButton.textContent='BASEMENT';
+  floorGroup.appendChild(basementButton);
+  teleportFloorButtons.push(basementButton);
+  teleportFloorTitles.basement='BASEMENT';
+  jumpTargetData.basement=[{
+    id:'basement-01',x:43.88,y:55.70,label:'Teleport to basement',
+    unrealValue:'basement'
+  }];
+
+  // Images use the same 960x2048 positions, aspect ratio and crossfade.
+  const basementPlans=new Map();
+  for(const plan of LAYOUTS){
+    const img=document.createElement('img');img.className='teleportPlanImage';
+    img.id='hvsPlanBasement_'+plan.id;
+    setBasementImageSource(img,plan.plan);
+    img.alt='Basement floor plan - '+plan.label.toLowerCase();
+    img.decoding='async';img.loading='lazy';
+    stage.insertBefore(img,document.getElementById('teleportYouAreHereLayer'));
+    basementPlans.set(plan.id,img);
+  }
+  // Kitchen art is a transparent overlay, not a separate floorplan.
+  // Mount both layers in the SAME map stage as the 960x2048 plan, above the
+  // active plan but below the teleport target; only one can be visible.
+  const basementKitchenOverlays=new Map();
+  for(const option of KITCHENS.filter(option=>option.id!=='none')){
+    const img=document.createElement('img');
+    img.id='hvsBasementKitchenOverlay_'+option.id;
+    img.className='teleportPlanImage hvsBasementKitchenOverlay';
+    const file='basement_kitchen_'+option.id.slice(-2)+'.png';
+    setBasementImageSource(img,file);
+    img.alt='';img.setAttribute('aria-hidden','true');
+    img.decoding='async';img.loading='lazy';
+    stage.insertBefore(img,document.getElementById('teleportYouAreHereLayer'));
+    basementKitchenOverlays.set(option.id,img);
+  }
+  buildJumpTargets();
+  hideJumpTargets('basement');
+
+  const layoutTrigger=document.createElement('button');
+  layoutTrigger.type='button';layoutTrigger.id='basementLayoutOpen';
+  layoutTrigger.className='hvsBasementAction';layoutTrigger.textContent='CHANGE LAYOUT';
+  const kitchenTrigger=document.createElement('button');
+  kitchenTrigger.type='button';kitchenTrigger.id='basementKitchenOpen';
+  kitchenTrigger.className='hvsBasementAction';kitchenTrigger.textContent='BASEMENT KITCHEN OPTIONS';
+  rail.append(layoutTrigger);
+  stage.append(kitchenTrigger);
+
+  const modal=(id,title,description,aria)=>{
+    const overlay=document.createElement('div');overlay.id=id;
+    overlay.className='hvsBasementOverlay';overlay.setAttribute('aria-hidden','true');
+    overlay.innerHTML=`<section class="hvsBasementDialog" role="dialog" aria-modal="true" aria-label="${aria}">
+      <div class="layoutChoiceTop"><div class="layoutChoiceTitle">${title}</div>
+        <button type="button" class="hvsBasementClose" aria-label="Close options">×</button></div>
+      <p class="layoutChoiceText">${description}</p>
+      <div class="hvsBasementOptions"></div>
+      <p class="hvsBasementFoot">Illustrative upgrades in Canadian dollars. Finished basement layouts include a washroom.</p>
+    </section>`;
+    const close=overlay.querySelector('.hvsBasementClose');
+    close.style.cssText='border:0;border-radius:50%;width:28px;height:28px;flex:0 0 28px;background:rgba(255,255,255,.11);color:white;font:600 20px/1 Arial,sans-serif;cursor:pointer';
+    const dismiss=()=>{overlay.classList.remove('is-open');overlay.setAttribute('aria-hidden','true');
+      if(overlay.contains(document.activeElement))document.activeElement.blur();
+      if(overlay.classList.contains('hvsBasementExternal')){
+        overlay.classList.remove('hvsBasementExternal');outer.appendChild(overlay);
+      }
+    };
+    overlay.addEventListener('click',e=>{if(e.target===overlay)dismiss();});
+    close.addEventListener('click',dismiss);
+    outer.appendChild(overlay);
+    return {overlay,dismiss,options:overlay.querySelector('.hvsBasementOptions'),close};
+  };
+  const layoutModal=modal('basementLayoutOverlay','BASEMENT LAYOUT',
+    'Choose the basement configuration. Every finished option includes the basement washroom.',
+    'Basement layout options');
+  const kitchenModal=modal('basementKitchenOverlay','BASEMENT KITCHEN',
+    'An optional kitchen can be added, changed or removed at any time.',
+    'Basement kitchen options');
+  const closeBasementMenus=()=>{layoutModal.dismiss();kitchenModal.dismiss();};
+  document.addEventListener('keydown',e=>{
+    if(e.key==='Escape'&&(layoutModal.overlay.classList.contains('is-open')||kitchenModal.overlay.classList.contains('is-open'))){
+      e.preventDefault();e.stopPropagation();closeBasementMenus();
+    }
+  },true);
+  document.addEventListener('homeview:menus-reset',()=>{
+    // Preserve the independently opened Personalize/invitation modal, but
+    // still close a Teleport-origin modal if its parent menu is dismissed.
+    if(!document.body.classList.contains('teleport-mode') &&
+      (layoutModal.overlay.classList.contains('hvsBasementExternal') ||
+       kitchenModal.overlay.classList.contains('hvsBasementExternal')))return;
+    closeBasementMenus();
+  });
+  for(const button of teleportFloorButtons)button.addEventListener('click',closeBasementMenus,true);
+  document.getElementById('teleportMenuCloseButton')?.addEventListener('click',closeBasementMenus,true);
+
+  // Keep all existing profile and admin pricing infrastructure. New categories
+  // are stored in the EXISTING finishCatalog, so Marie can edit them as normal.
+  const priceCatalog={
+    basementLayout:{unfinished:0,finished:34000,one_bedroom:46500,two_bedroom:58500},
+    basementKitchen:{none:0,kitchen01:7200,kitchen02:11300}
+  };
+  for(const [zone,items] of Object.entries(priceCatalog)){
+    for(const [key,value] of Object.entries(items)){
+      const catalogKey=zone+'|'+key;
+      if(!Object.prototype.hasOwnProperty.call(hvsStore.finishCatalog,catalogKey))
+        hvsStore.finishCatalog[catalogKey]=value;
+    }
+  }
+  hvsPersist();
+  const profileSettings=()=>hvsCurrentProfile().settings;
+  const selectedLayout=()=>LAYOUTS.some(x=>x.id===profileSettings().BasementLayout)
+    ?profileSettings().BasementLayout:'unfinished';
+  const selectedKitchen=()=>KITCHENS.some(x=>x.id===profileSettings().BasementKitchen)
+    ?profileSettings().BasementKitchen:'none';
+  const basementCostSync=()=>{
+    const profile=hvsCurrentProfile();
+    const layout=selectedLayout();
+    profile.costOverrides['Basement Layout Cost']=hvsFinishPrice('basementLayout',layout);
+    profile.costOverrides['Basement Kitchen Cost']=layout==='unfinished'
+      ?0:hvsFinishPrice('basementKitchen',selectedKitchen());
+  };
+  const existingPrices=hvsPrices;
+  hvsPrices=function(){basementCostSync();return existingPrices();};
+  basementCostSync();
+  hvsRenderCost();
+
+  function selectedPlan(){return basementPlans.get(selectedLayout())||basementPlans.get('unfinished');}
+  function updateKitchenArt(floor){
+    const activeKitchen=floor==='basement'&&selectedLayout()!=='unfinished'?selectedKitchen():'none';
+    for(const [id,image] of basementKitchenOverlays){
+      image.classList.toggle('active',id===activeKitchen);
+    }
+  }
+  const originalPlanSetter=setActiveTeleportPlan;
+  setActiveTeleportPlan=function(floor){
+    if(floor!=='basement'){
+      syncFloorExplainer(floor);
+      for(const img of basementPlans.values())img.classList.remove('active');
+      updateKitchenArt(floor);
+      return originalPlanSetter(floor);
+    }
+    stage.dataset.floor='basement';
+    syncFloorExplainer('basement');
+    stage.dataset.basementLayout=selectedLayout();
+    queueLiveMapDraw();
+    for(const img of [teleportPlanGround,teleportPlanFirst,teleportPlanFirstBedroom])img.classList.remove('active');
+    const active=selectedPlan();
+    for(const img of basementPlans.values())img.classList.toggle('active',img===active);
+    updateKitchenArt(floor);
+    kitchenTrigger.textContent=selectedKitchen()==='none'?'ADD BASEMENT KITCHEN':'CHANGE BASEMENT KITCHEN';
+  };
+  const originalFloorSelection=setActiveFloorButton;
+  setActiveFloorButton=function(floor){
+    originalFloorSelection(floor);
+    basementButton.classList.toggle('active',floor==='basement');
+  };
+  basementButton.addEventListener('click',()=>setTeleportFloor('basement'));
+  window.homeViewBasementDebug=()=>({
+    viewedFloor:stage.dataset.floor,layout:selectedLayout(),kitchen:selectedKitchen(),
+    prices:{layout:hvsFinishPrice('basementLayout',selectedLayout()),
+      kitchen:selectedLayout()==='unfinished'?0:hvsFinishPrice('basementKitchen',selectedKitchen())},
+    imageOverlays:[...basementKitchenOverlays].map(([id,img])=>({id,active:img.classList.contains('active'),src:img.currentSrc||img.src})),
+    messages:hvsBasementMessages.map(x=>({...x,payload:{...x.payload}})),
+    target:jumpTargetData.basement[0],
+    introVisible:outer.classList.contains('hvs-layout-intro'),
+    kitchenButtonParent:kitchenTrigger.parentElement?.id,
+    kitchenTeleportTarget:'basement_kitchen_view'
+  });
+
+  function sendBasement(value,withTeleport){
+    // Keep the Unreal messages in the exact requested sequence.
+    const send=payload=>{
+      let result=false;
+      try{result=window.homeViewSend?.(payload)===true;}
+      catch(error){console.error('[BASEMENT] Send failed:',payload,error);}
+      hvsBasementMessages.push({payload,acceptedByFrontend:result});
+      if(hvsBasementMessages.length>35)hvsBasementMessages.shift();
+      // 'true' means the JS transport accepted a request, not UE acknowledgement.
+      console.info('[BASEMENT] Unreal request',JSON.stringify(payload),'transport accepted:',result);
+      if(!result)console.warn('[BASEMENT] Unreal did not confirm transport:',payload);
+    };
+    send({basement:value});
+    if(withTeleport)send({teleportMap:withTeleport==='kitchen'?'basement_kitchen_view':'basement'});
+  }
+  function drawLayoutChoices(){
+    layoutModal.options.replaceChildren();
+    for(const entry of LAYOUTS){
+      const card=document.createElement('div');card.className='hvsBasementChoice';
+      const image=document.createElement('img');image.className='hvsBasementThumb';
+      setBasementImageSource(image,entry.thumb);
+      image.alt=entry.label+' floor plan preview';image.loading='lazy';
+      const button=document.createElement('button');button.type='button';button.className='layoutChoiceButton';
+      const price=hvsFinishPrice('basementLayout',entry.id);
+      button.textContent=entry.label+(price?` · +$${price.toLocaleString('en-CA')}`:' · INCLUDED');
+      const selected=selectedLayout()===entry.id;
+      button.classList.toggle('is-selected',selected);button.setAttribute('aria-pressed',String(selected));
+      button.addEventListener('click',()=>{
+        hvsSetConfig('BasementLayout',entry.id);
+        // Preserve the buyer's optional kitchen across all FINISHED layouts.
+        // Only choosing UNFINISHED explicitly clears the kitchen selection.
+        if(entry.id==='unfinished')hvsSetConfig('BasementKitchen','none');
+        basementCostSync();hvsPersistProfile();
+        hvsLastChangedKey='Basement Layout Cost';hvsRenderCost();
+        if(document.body.classList.contains('teleport-mode') && stage.dataset.floor==='basement')
+          setActiveTeleportPlan('basement');
+        if(currentEditMenuRoom==='Basement' && document.body.classList.contains('profile-mode'))renderEditMenu();
+        // Keep the original layout/teleport message sequence. Do not emit a
+        // kitchen command during a change between finished layouts: Unreal
+        // should retain its separately loaded kitchen streaming level.
+        sendBasement(entry.id,true);
+        if(entry.id==='unfinished')sendBasement('remove_kitchen',false);
+        closeBasementMenus();
+      });
+      card.append(image,button);layoutModal.options.appendChild(card);
+    }
+  }
+  function drawKitchenChoices(){
+    kitchenModal.options.replaceChildren();
+    // Present both kitchen previews across the TOP row; center remove below.
+    // Message values, price/state handling, and selected styling are unchanged.
+    for(const entry of [...KITCHENS.filter(k=>k.id!=='none'), KITCHENS.find(k=>k.id==='none')]){
+      const card=document.createElement('div');card.className='hvsBasementChoice';
+      let thumb=null;
+      if(entry.id==='none')card.classList.add('hvsBasementNoKitchenChoice');
+      else {
+        thumb=document.createElement('img');thumb.className='hvsBasementThumb';
+        setBasementImageSource(thumb,entry.id+'.png');
+        thumb.alt=entry.label+' preview';thumb.loading='lazy';thumb.decoding='async';
+      }
+      const button=document.createElement('button');button.type='button';button.className='layoutChoiceButton';
+      const price=hvsFinishPrice('basementKitchen',entry.id);
+      button.textContent=entry.label+(price?` · +$${price.toLocaleString('en-CA')}`:' · INCLUDED');
+      const selected=selectedKitchen()===entry.id;
+      button.classList.toggle('is-selected',selected);button.setAttribute('aria-pressed',String(selected));
+      button.addEventListener('click',()=>{
+        if(selectedLayout()==='unfinished')return;
+        const previous=selectedKitchen();
+        // Switching variants must first clear any existing kitchen streaming
+        // level. This also clears a backend-included kitchen 01 on first add.
+        // A REMOVE selection sends only the remove message once.
+        if(entry.id!=='none'&&previous!==entry.id)
+          sendBasement('remove_kitchen',false);
+        hvsSetConfig('BasementKitchen',entry.id);
+        basementCostSync();hvsPersistProfile();
+        hvsLastChangedKey='Basement Kitchen Cost';hvsRenderCost();
+        if(document.body.classList.contains('teleport-mode') && stage.dataset.floor==='basement')
+          setActiveTeleportPlan('basement');
+        sendBasement(entry.command,entry.id!=='none'?'kitchen':false);
+        closeBasementMenus();
+      });
+      if(thumb)card.appendChild(thumb);
+      card.appendChild(button);kitchenModal.options.appendChild(card);
+    }
+  }
+  function openModal(which,allowExternal=false){
+    const inBasementMap=document.body.classList.contains('teleport-mode')&&stage.dataset.floor==='basement';
+    if(!inBasementMap && !allowExternal)return false;
+    if(which==='layout')drawLayoutChoices();else{
+      if(selectedLayout()==='unfinished')return false;
+      drawKitchenChoices();
+    }
+    const current=which==='layout'?layoutModal:kitchenModal;
+    closeBasementMenus();
+    // Always portal above the game's existing frosted-glass UI layers.
+    // Nested backdrop filters otherwise blur only the teleport panel itself.
+    current.overlay.classList.add('hvsBasementExternal');
+    document.body.appendChild(current.overlay);
+    current.overlay.classList.add('is-open');current.overlay.setAttribute('aria-hidden','false');
+    current.close.focus({preventScroll:true});
+    return true;
+  }
+  window.homeViewBasementKitchenEnabled=()=>selectedLayout()!=='unfinished';
+  window.homeViewOpenBasementLayoutOptions=()=>openModal('layout',true);
+  window.homeViewOpenBasementKitchenOptions=()=>openModal('kitchen',true);
+  layoutTrigger.addEventListener('click',()=>openModal('layout'));
+  kitchenTrigger.addEventListener('click',()=>openModal('kitchen'));
+
+  // Basement invitation: ONCE PER STREAM PAGE/SESSION, never persisted.
+  // Previous versions wrote BasementOfferSeen in the profile/localStorage;
+  // intentionally ignore those old values so future sessions can see it.
+  const offer=document.createElement('div');offer.id='hvsBasementOfferPrompt';
+  offer.setAttribute('role','presentation');offer.setAttribute('aria-hidden','true');
+  offer.innerHTML=`<section id="hvsBasementOfferDialog" role="dialog" aria-modal="false"
+       aria-labelledby="hvsBasementOfferTitle" aria-describedby="hvsBasementOfferDescription">
+      <h2 id="hvsBasementOfferTitle">MAKE THIS SPACE YOURS</h2>
+      <p id="hvsBasementOfferDescription">Would you like to explore our finished basement options? Add a comfortable living area, a bedroom or two, and an optional kitchen.</p>
+      <div id="hvsBasementOfferActions">
+        <button type="button" id="hvsBasementOfferYes">VIEW BASEMENT OPTIONS</button>
+        <button type="button" id="hvsBasementOfferDismiss">MAYBE LATER</button>
+      </div>
+    </section>`;
+  document.body.appendChild(offer);
+  // Keep this flag IN MEMORY ONLY. The next new game page starts fresh.
+  // Never read or write the previous profile/localStorage "seen" values.
+  let offerShownThisSession=false;
+  let offerPending=false;
+  function seenBasementOffer(){return offerShownThisSession;}
+  function markBasementOfferSeen(){offerShownThisSession=true;}
+  function closeBasementOffer(){
+    offer.classList.remove('is-open');offer.setAttribute('aria-hidden','true');
+  }
+  offer.querySelector('#hvsBasementOfferDismiss').addEventListener('click',closeBasementOffer);
+  offer.querySelector('#hvsBasementOfferYes').addEventListener('click',()=>{
+    closeBasementOffer();openModal('layout',true);
+  });
+  document.addEventListener('keydown',e=>{
+    if(e.key==='Escape'&&offer.classList.contains('is-open')){
+      e.preventDefault();closeBasementOffer();
+    }
+  },true);
+  window.homeViewShowBasementOfferOnce=()=>{
+    if(seenBasementOffer()||offerPending)return false;
+    offerPending=true;
+    const started=Date.now();
+    const showWhenReady=()=>{
+      if(window.homeViewSessionIntentional || Date.now()-started>30000){offerPending=false;return;}
+      if(window.homeViewCanOpenUi?.()===false){setTimeout(showWhenReady,550);return;}
+      offerPending=false;
+      if(seenBasementOffer())return;
+      markBasementOfferSeen();
+      offer.classList.add('is-open');offer.setAttribute('aria-hidden','false');
+    };
+    showWhenReady();return true;
+  };
+  window.homeViewTestBasementOffer=()=>window.homeViewShowBasementOfferOnce();
+  // Optional local debug utility: simulate the start of a fresh session.
+  window.homeViewResetBasementOffer=()=>{
+    closeBasementOffer();offerPending=false;offerShownThisSession=false;
+    return true;
+  };
+  window.homeViewBasementOfferStatus=()=>({
+    shownThisSession:offerShownThisSession,
+    pending:offerPending,
+    open:offer.classList.contains('is-open')
+  });
+  console.info('[BASEMENT] Basement layout invitation, Personalize and kitchen thumbnails ready.');
+})();
+
+</script>
 </body></html>
