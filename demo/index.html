@@ -13273,7 +13273,7 @@ window.addEventListener('keyup',event=>{
       !explainerHeading || !explainerDescription) return;
   const firstFloorHeading=explainerHeading.textContent;
   const firstFloorDescription=explainerDescription.textContent;
-  const basementDescription='Keep your basement unfinished, or create a finished space with up to two bedrooms. You can change it anytime.';
+  const basementDescription='Keep your basement unfinished, or create a finished space with up to two bedrooms.';
   function syncFloorExplainer(floor) {
     // Same LAYOUT OPTIONS heading, same width and almost identical text length.
     explainerHeading.textContent=firstFloorHeading;
@@ -13359,8 +13359,8 @@ window.addEventListener('keyup',event=>{
        existing open area. It does not consume rail height or shift the logo. */
     #teleportMapStage #basementKitchenOpen {
       position:absolute;z-index:12;left:50%;bottom:22.5%;
-      transform:translateX(-50%);width:64%;max-width:310px;
-      box-sizing:border-box;min-height:clamp(29px,6.8dvh,43px);padding:6px 5px;
+      transform:translateX(-50%);width:84%;max-width:340px;
+      box-sizing:border-box;min-height:clamp(29px,6.8dvh,43px);padding:6px 13px;
       border:1px solid rgba(255,78,18,.62);border-radius:999px;
       background:linear-gradient(145deg,rgba(255,78,18,.77),rgba(153,39,12,.72));
       box-shadow:0 4px 17px rgba(0,0,0,.20),inset 0 1px 0 rgba(255,255,255,.18);
@@ -13387,7 +13387,7 @@ window.addEventListener('keyup',event=>{
     }
     @media (orientation:landscape) and (max-height:440px) {
       #teleportMapStage #basementKitchenOpen {
-        min-height:25px;padding:4px 3px;font-size:clamp(7px,1.9dvh,10px);
+        min-height:25px;padding:4px 12px;font-size:clamp(7px,1.9dvh,10px);
       }
     }
     .hvsBasementOverlay {
@@ -13507,10 +13507,15 @@ window.addEventListener('keyup',event=>{
     @media(prefers-reduced-motion:reduce){
       #hvsBasementOfferPrompt,#hvsBasementOfferDialog {transition-duration:.01ms;}
     }
+    @media (pointer:coarse) and (orientation:landscape) and (min-height:441px) {
+      #basementLayoutOverlay .hvsBasementThumb {height:clamp(110px,23dvh,170px);}
+      #basementKitchenOverlay .hvsBasementThumb {height:clamp(130px,27dvh,195px);}
+    }
     @media(max-height:440px) {
       .hvsBasementDialog {padding:9px 11px;}
       .hvsBasementOptions {gap:5px;margin-top:6px;}
-      .hvsBasementThumb {height:clamp(40px,15dvh,83px);}
+      #basementLayoutOverlay .hvsBasementThumb {height:clamp(78px,27dvh,128px);}
+      #basementKitchenOverlay .hvsBasementThumb {height:clamp(102px,34dvh,168px);}
       .hvsBasementChoice .layoutChoiceButton {min-height:28px;font-size:9px;padding:5px 3px;}
     }
   `;
@@ -13573,9 +13578,8 @@ window.addEventListener('keyup',event=>{
     overlay.innerHTML=`<section class="hvsBasementDialog" role="dialog" aria-modal="true" aria-label="${aria}">
       <div class="layoutChoiceTop"><div class="layoutChoiceTitle">${title}</div>
         <button type="button" class="hvsBasementClose" aria-label="Close options">×</button></div>
-      <p class="layoutChoiceText">${description}</p>
+      ${description?'<p class="layoutChoiceText">'+description+'</p>':''}
       <div class="hvsBasementOptions"></div>
-      <p class="hvsBasementFoot">Illustrative upgrades in Canadian dollars. Finished basement layouts include a washroom.</p>
     </section>`;
     const close=overlay.querySelector('.hvsBasementClose');
     close.style.cssText='border:0;border-radius:50%;width:28px;height:28px;flex:0 0 28px;background:rgba(255,255,255,.11);color:white;font:600 20px/1 Arial,sans-serif;cursor:pointer';
@@ -13591,7 +13595,7 @@ window.addEventListener('keyup',event=>{
     return {overlay,dismiss,options:overlay.querySelector('.hvsBasementOptions'),close};
   };
   const layoutModal=modal('basementLayoutOverlay','BASEMENT LAYOUT',
-    'Choose the basement configuration. Every finished option includes the basement washroom.',
+    '',
     'Basement layout options');
   const kitchenModal=modal('basementKitchenOverlay','BASEMENT KITCHEN',
     'An optional kitchen can be added, changed or removed at any time.',
