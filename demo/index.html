@@ -6147,8 +6147,8 @@ function hvsFrontKey(category,facade){
     return suffix?`F_${facade}_${suffix}`:null;
 }
 function hvsFrontOptionData(category,id){
-    if(category==='GARAGE DESIGN')return {label:`GARAGE ${id}`,file:`garage_${id}.png`};
-    if(category==='STONE')return {label:`STONE ${id}`,file:`stone_${id}.png`};
+    if(category==='GARAGE DESIGN')return {label:`GARAGE ${id}`,file:`fast/garage_${id}.png`};
+    if(category==='STONE')return {label:`STONE ${id}`,file:`fast/stone_${id}.png`};
     if(category==='WOOD ACCENT')return {label:`WOOD ${id}`,file:`Kitchen/wood_${id==='01'?'00':id}.jpg`};
     if(category==='TILE')return {label:`TILE ${id}`,file:`Kitchen/marble_${id}.jpg`};
     return {label:`COLOR ${id}`,color:HVS_FRONT_SWATCHES[Number(id)-1]||'#777'};
@@ -6208,7 +6208,7 @@ function hvsRenderFrontSubmenu(){
         const thumb=document.createElement('span');thumb.className='hvsFrontThumb';
         if(item.file){
             const img=document.createElement('img');img.src=item.file;img.alt=item.label;img.loading='lazy';
-            img.onerror=()=>{if(!img.dataset.retry){img.dataset.retry='1';img.src='https://nicodutoitcanada-debug.github.io/Home-View-Demo-Test/'+item.file;}else{img.style.display='none';thumb.textContent=id;}};
+            img.onerror=()=>{if(!img.dataset.retry){img.dataset.retry='1';img.src='https://nicodutoitcanada-debug.github.io/Home-View-Demo-Test/'+item.file.replace(/^fast\//,'');}else{img.style.display='none';thumb.textContent=id;}};
             thumb.append(img);
         }else thumb.style.setProperty('--hvs-front-chip',item.color);
         const title=document.createElement('span');title.textContent=item.label;title.className='hvsFacadeName';
@@ -13234,10 +13234,10 @@ window.addEventListener('keyup',event=>{
   }
 
   const LAYOUTS = Object.freeze([
-    {id:'unfinished',label:'UNFINISHED',plan:'basement.png',thumb:'basement-thumb.png',price:0},
-    {id:'finished',label:'FINISHED',plan:'basement_finished.png',thumb:'basement_finished-thumb.png',price:34000},
-    {id:'one_bedroom',label:'ONE BEDROOM',plan:'basement_one_bedroom.png',thumb:'basement_one_bedroom-thumb.png',price:46500},
-    {id:'two_bedroom',label:'TWO BEDROOM',plan:'basement_two_bedroom.png',thumb:'basement_two_bedroom-thumb.png',price:58500}
+    {id:'unfinished',label:'UNFINISHED',plan:'basement.png',thumb:'fast/basement-thumb.png',price:0},
+    {id:'finished',label:'FINISHED',plan:'basement_finished.png',thumb:'fast/basement_finished-thumb.png',price:34000},
+    {id:'one_bedroom',label:'ONE BEDROOM',plan:'basement_one_bedroom.png',thumb:'fast/basement_one_bedroom-thumb.png',price:46500},
+    {id:'two_bedroom',label:'TWO BEDROOM',plan:'basement_two_bedroom.png',thumb:'fast/basement_two_bedroom-thumb.png',price:58500}
   ]);
   // Unreal string values are case- and whitespace-sensitive. Use the values
   // given in the user's message contract for adding a kitchen. No kitchen
@@ -13257,7 +13257,7 @@ window.addEventListener('keyup',event=>{
         return;
       }
       image.dataset.hvsBasementFallback='yes';
-      image.src=ASSET_FALLBACK+filename;
+      image.src=ASSET_FALLBACK+filename.replace(/^fast\//,'');
     };
     image.src=filename;
   }
@@ -13748,7 +13748,7 @@ window.addEventListener('keyup',event=>{
       if(entry.id==='none')card.classList.add('hvsBasementNoKitchenChoice');
       else {
         thumb=document.createElement('img');thumb.className='hvsBasementThumb';
-        setBasementImageSource(thumb,entry.id+'.png');
+        setBasementImageSource(thumb,'fast/'+entry.id+'.png');
         thumb.alt=entry.label+' preview';thumb.loading='lazy';thumb.decoding='async';
       }
       const button=document.createElement('button');button.type='button';button.className='layoutChoiceButton';
